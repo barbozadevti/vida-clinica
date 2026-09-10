@@ -1,0 +1,8 @@
+**/__pycache__/
+**/*.pyc
+backend/.venv/
+backend/.env
+*.md
+scripts/
+*.bat
+.git/

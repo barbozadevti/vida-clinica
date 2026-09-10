@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>e-SUS UBS — Atendimento</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <div id="login" class="login-wrap">
+    <form id="login-form" class="login-card">
+      <h1>🏥 e-SUS UBS</h1>
+      <p class="muted">Prontuário e atendimento — Atenção Primária</p>
+      <label>E-mail<input name="email" type="email" required autocomplete="username" /></label>
+      <label>Senha<input name="senha" type="password" required autocomplete="current-password" /></label>
+      <button class="btn" type="submit">Entrar</button>
+      <p id="login-erro" class="erro" hidden></p>
+      <details class="muted"><summary>Usuários de teste (senha 123456)</summary>
+        <small>medico@ubs.local · recepcao@ubs.local · enfermagem@ubs.local · admin@ubs.local</small>
+      </details>
+    </form>
+  </div>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand">🏥 e-SUS UBS</div>
+      <nav id="nav"></nav>
+      <div class="user"><span id="user-info"></span><button id="sair" class="btn ghost small">Sair</button></div>
+    </header>
+    <main id="view"></main>
+  </div>
+
+  <div id="modal-backdrop" class="modal-backdrop" hidden>
+    <div class="modal">
+      <div class="modal-head"><h2 id="modal-title"></h2><button id="modal-close" class="icon-btn">&times;</button></div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>
