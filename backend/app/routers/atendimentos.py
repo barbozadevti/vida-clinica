@@ -21,11 +21,12 @@ from ..schemas import (
     FolhaRostoOut,
     ProblemaIn,
     ProblemaOut,
+    ReabrirIn,
     SerieEvolucao,
     SoapIn,
 )
 from ..security import exigir_perfis, usuario_atual
-from ..util import cidadao_dict
+from ..util import cidadao_dict, com_vitais
 
 router = APIRouter(prefix="/api/atendimentos", tags=["atendimento (Passos 2, 3, 5)"])
 _CLINICO = exigir_perfis("MEDICO", "ENFERMEIRO")
@@ -74,7 +75,24 @@ def listar(cidadao_id: str | None = None, _: Usuario = Depends(usuario_atual),
 
 @router.get("/{aid}", response_model=AtendimentoOut)
 def obter(aid: str, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
-    return _get(db, aid)
+    return com_vitais(db, _get(db, aid))
+
+
+@router.post("/{aid}/reabrir", response_model=AtendimentoOut)
+def reabrir(aid: str, dados: ReabrirIn, usuario: Usuario = Depends(exigir_perfis("ADMIN")),
+            db: Session = Depends(get_db)):
+    at = _get(db, aid)
+    if at.status != "FINALIZADO":
+        raise HTTPException(409, "Só é possível reabrir um atendimento finalizado")
+    at.status = "EM_ATENDIMENTO"
+    at.assinado = False
+    at.assinado_em = None
+    at.fim_atendimento = None
+    obs = f"[Reaberto por {usuario.nome} em {datetime.now(timezone.utc):%d/%m/%Y %H:%M} — {dados.motivo}]"
+    at.plano = (at.plano or "") + f"\n\n{obs}"
+    db.commit()
+    db.refresh(at)
+    return com_vitais(db, at)
 
 
 # ─────────── Passo 2 — Folha de Rosto ───────────
@@ -161,7 +179,7 @@ def salvar_soap(aid: str, dados: SoapIn, usuario: Usuario = Depends(_CLINICO),
                            tipo="IMC", valor=imc, unidade="kg/m²", aferido_em=agora))
     db.commit()
     db.refresh(at)
-    return at
+    return com_vitais(db, at)
 
 
 @router.post("/{aid}/problemas", response_model=ProblemaOut, status_code=201)
@@ -220,4 +238,4 @@ def finalizar(aid: str, dados: FinalizarIn, usuario: Usuario = Depends(_CLINICO)
     at.assinado_em = datetime.now(timezone.utc)
     db.commit()
     db.refresh(at)
-    return at
+    return com_vitais(db, at)

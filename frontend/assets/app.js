@@ -24,7 +24,11 @@ function toast(msg, err = false) {
 }
 
 const fmtDT = (i) => i ? new Date(i).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "-";
-const fmtD = (i) => i ? new Date(i).toLocaleDateString("pt-BR") : "-";
+const fmtD = (i) => {
+  if (!i) return "-";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(i);          // data pura → sem fuso
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : new Date(i).toLocaleDateString("pt-BR");
+};
 const hojeInput = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const risco = (r) => r ? `<span class="badge risco-${r}">${r}</span>` : "";
 const stBadge = (s) => `<span class="badge st-${s}">${s.replace(/_/g, " ")}</span>`;
@@ -169,7 +173,9 @@ $("#sair").onclick = sair;
 const MENU = [
   { v: "painel", t: "Painel", p: "*" },
   { v: "fila", t: "Atendimento do dia", p: ["MEDICO", "ENFERMEIRO", "RECEPCAO"] },
+  { v: "retornos", t: "Retornos", p: ["RECEPCAO", "ENFERMEIRO", "MEDICO"] },
   { v: "cidadaos", t: "Cidadãos", p: ["RECEPCAO", "ENFERMEIRO", "MEDICO"] },
+  { v: "relatorios", t: "Relatórios", p: ["MEDICO", "ENFERMEIRO"] },
   { v: "usuarios", t: "Usuários", p: ["ADMIN"] },
 ];
 const pode = (m) => m.p === "*" || user.perfil === "ADMIN" || m.p.includes(user.perfil);
@@ -199,11 +205,19 @@ views.painel = async () => {
   viewEl.innerHTML = `<div class="page-head"><h1 class="title">Painel</h1></div><div id="pc"></div>`;
   try {
     const d = await api("/painel");
+    const cards = [
+      ["Aguardando", d.aguardando],
+      ["Sem acolhimento", d.em_acolhimento_pendente],
+      ["Em atendimento", d.em_atendimento],
+      ["Finalizados hoje", d.finalizados_hoje],
+      ["Retornos (7 dias)", d.retornos_7dias],
+      ["Cidadãos", d.cidadaos],
+    ];
     $("#pc").innerHTML = `<div class="cards">
-      ${[["Aguardando", d.aguardando], ["Em atendimento", d.em_atendimento],
-         ["Finalizados hoje", d.finalizados_hoje], ["Cidadãos", d.cidadaos]]
-        .map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}
-    </div>`;
+      ${cards.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}
+    </div>
+    ${(d.producao_hoje || []).length ? `<div class="panel"><h3>Produção de hoje</h3>
+      <table><tbody>${d.producao_hoje.map((p) => `<tr><td>${esc(p.profissional)}</td><td><b>${p.total}</b> atendimento(s)</td></tr>`).join("")}</tbody></table></div>` : ""}`;
   } catch (e) { $("#pc").innerHTML = `<p class="empty">${e.message}</p>`; }
 };
 
@@ -219,18 +233,24 @@ views.fila = async () => {
     const fila = await api("/fila");
     const box = $("#lista"); box.innerHTML = "";
     if (!fila.length) return (box.innerHTML = '<p class="empty">Ninguém aguardando atendimento.</p>');
-    const t = el(`<table><thead><tr><th>Risco</th><th>Cidadão</th><th>Idade</th><th>Motivo / queixa</th><th>Status</th><th>Chegada</th><th></th></tr></thead><tbody></tbody></table>`);
+    const t = el(`<table><thead><tr><th>Risco</th><th>Cidadão</th><th>Idade</th><th>Motivo / queixa</th><th>Acolh.</th><th>Status</th><th>Chegada</th><th></th></tr></thead><tbody></tbody></table>`);
     fila.forEach((a) => {
       const c = a.cidadao || {};
       const tr = el(`<tr>
-        <td>${risco(a.classificacao_risco)}</td>
+        <td>${risco(a.classificacao_risco) || '<span class="badge">sem risco</span>'}</td>
         <td><b>${esc(c.nome_social || c.nome_completo)}</b></td>
         <td>${c.idade ?? "-"}${c.sexo ? " · " + c.sexo : ""}</td>
         <td>${esc(a.motivo || "-")}</td>
+        <td>${a.acolhido_em ? "✔️" : '<span class="muted">—</span>'}</td>
         <td>${stBadge(a.status)}${a.profissional ? "<br><span class='muted'>" + esc(a.profissional.nome) + "</span>" : ""}</td>
         <td>${fmtDT(a.criado_em)}</td>
         <td class="row-actions"></td></tr>`);
       const acts = $(".row-actions", tr);
+      if (user.perfil === "ENFERMEIRO" && a.status === "AGUARDANDO") {
+        const ac = el(`<button class="btn small sec">${a.acolhido_em ? "Rever acolhimento" : "Acolhimento"}</button>`);
+        ac.onclick = () => acolhimentoForm(a, carregar);
+        acts.appendChild(ac);
+      }
       if (clinico) {
         const b = el(`<button class="btn small">${a.status === "EM_ATENDIMENTO" ? "Continuar" : "Atender"}</button>`);
         b.onclick = async () => {
@@ -260,12 +280,45 @@ async function filaForm(reload) {
       { name: "cidadao_id", label: "Cidadão", required: true, type: "select", full: true,
         options: cids.map((c) => ({ value: c.id, label: `${c.nome_completo}${c.cpf ? " — " + c.cpf : ""}` })) },
       { name: "tipo", label: "Tipo", type: "select", options: ["CONSULTA", "RETORNO", "URGENCIA", "PROCEDIMENTO"].map((v) => ({ value: v, label: v })) },
-      { name: "classificacao_risco", label: "Classificação de risco", type: "select",
-        options: [{ value: "", label: "— não classificado —" }, ...["AZUL", "VERDE", "AMARELO", "LARANJA", "VERMELHO"].map((v) => ({ value: v, label: v }))] },
-      { name: "motivo", label: "Motivo / queixa (acolhimento)", type: "textarea", full: true },
+      { name: "classificacao_risco", label: "Classificação de risco (opcional — a enfermagem pode fazer)", type: "select", full: true,
+        options: [{ value: "", label: "— será classificado no acolhimento —" }, ...["AZUL", "VERDE", "AMARELO", "LARANJA", "VERMELHO"].map((v) => ({ value: v, label: v }))] },
+      { name: "motivo", label: "Motivo / queixa", type: "textarea", full: true },
     ],
     onSubmit: async (d) => { await api("/fila", { method: "POST", body: JSON.stringify(d) }); toast("Adicionado à fila"); reload(); },
   });
+}
+
+// Acolhimento / pré-consulta da enfermagem
+function acolhimentoForm(a, reload) {
+  const w = el(`<form class="grid4">
+    <div class="full"><label class="fld">Classificação de risco (Manchester) *</label>
+      <select name="classificacao_risco" required>
+        ${["AZUL","VERDE","AMARELO","LARANJA","VERMELHO"].map((v) => `<option value="${v}"${a.classificacao_risco === v ? " selected" : ""}>${v}</option>`).join("")}
+      </select></div>
+    <div><label class="fld">PA sistólica</label><input name="pa_sistolica" type="number" placeholder="mmHg"/></div>
+    <div><label class="fld">PA diastólica</label><input name="pa_diastolica" type="number" placeholder="mmHg"/></div>
+    <div><label class="fld">Temperatura</label><input name="temperatura" type="number" step="0.1" placeholder="°C"/></div>
+    <div><label class="fld">FC</label><input name="freq_cardiaca" type="number" placeholder="bpm"/></div>
+    <div><label class="fld">FR</label><input name="freq_respiratoria" type="number" placeholder="irpm"/></div>
+    <div><label class="fld">SatO₂</label><input name="saturacao" type="number" placeholder="%"/></div>
+    <div><label class="fld">Peso</label><input name="peso" type="number" step="0.1" placeholder="kg"/></div>
+    <div><label class="fld">Altura</label><input name="altura" type="number" placeholder="cm"/></div>
+    <div><label class="fld">Glicemia</label><input name="glicemia" type="number" placeholder="mg/dL"/></div>
+    <div class="full"><label class="fld">Queixa / motivo</label><input name="motivo" value="${esc(a.motivo || "")}"/></div>
+    <div class="full"><label class="fld">Anotação do acolhimento</label><textarea name="anotacao">${esc(a.acolhimento || "")}</textarea></div>
+    <div class="modal-actions full"><button type="button" class="btn sec" id="ac-cancel">Cancelar</button><button type="submit" class="btn">Salvar acolhimento</button></div>
+  </form>`);
+  $("#ac-cancel", w).onclick = closeModal;
+  w.onsubmit = async (e) => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(w).entries());
+    ["pa_sistolica","pa_diastolica","temperatura","freq_cardiaca","freq_respiratoria","saturacao","peso","altura","glicemia"]
+      .forEach((k) => { d[k] = d[k] === "" ? null : Number(d[k]); });
+    Object.keys(d).forEach((k) => { if (d[k] === "") d[k] = null; });
+    try { await api(`/fila/${a.id}/acolhimento`, { method: "POST", body: JSON.stringify(d) }); toast("Acolhimento registrado"); closeModal(); reload(); }
+    catch (err) { toast(err.message, true); }
+  };
+  openModal("Acolhimento — " + (a.cidadao.nome_social || a.cidadao.nome_completo), w);
 }
 
 // ═════════ PASSOS 2–5 — ATENDIMENTO ═════════
@@ -278,19 +331,30 @@ views.atendimento = async (aid) => {
   const editavel = !bloqueado && meu && ["MEDICO", "ENFERMEIRO"].includes(user.perfil);
   const c = at.cidadao || {};
 
+  const podeReabrir = bloqueado && user.perfil === "ADMIN";
   viewEl.innerHTML = `
     <div class="page-head">
       <div><h1 class="title">${esc(c.nome_social || c.nome_completo)}</h1>
         <span class="muted">${c.idade ?? "?"} anos · ${c.sexo || "-"} · nasc. ${fmtD(c.data_nascimento)} · ${stBadge(at.status)}
         ${at.assinado ? "· <b style='color:var(--ok)'>assinado ✔</b>" : ""}</span></div>
-      <button class="btn sec" id="voltar">← Voltar à fila</button>
+      <div class="row-actions">
+        ${podeReabrir ? '<button class="btn sec" id="reabrir">Reabrir atendimento</button>' : ""}
+        <button class="btn sec" id="voltar">← Voltar</button>
+      </div>
     </div>
+    ${at.acolhido_em ? `<div class="panel" style="background:#f0f7ff"><b>Acolhimento</b> — ${esc(at.acolhido_por ? at.acolhido_por.nome : "")} em ${fmtDT(at.acolhido_em)}${at.acolhimento ? "<br>" + esc(at.acolhimento) : ""}</div>` : ""}
     <div id="alertas"></div>
     <details class="panel" id="fr-panel" open><summary style="cursor:pointer;font-weight:600">Passo 2 — Folha de rosto</summary><div id="fr" style="margin-top:12px">carregando…</div></details>
     <div class="panel"><h3>Passo 3 — Registro clínico (SOAP)</h3><div id="soap"></div></div>
     <div class="panel"><h3>Passo 4 — Prescrição e documentos</h3><div id="docs"></div></div>
     <div class="panel" id="fim-panel"><h3>Passo 5 — Finalização</h3><div id="fim"></div></div>`;
   $("#voltar").onclick = () => setView("fila");
+  if ($("#reabrir")) $("#reabrir").onclick = async () => {
+    const motivo = prompt("Motivo da reabertura:");
+    if (!motivo) return;
+    try { await api(`/atendimentos/${aid}/reabrir`, { method: "POST", body: JSON.stringify({ motivo }) }); toast("Atendimento reaberto"); views.atendimento(aid); }
+    catch (e) { toast(e.message, true); }
+  };
 
   renderFolhaRosto(aid);
   renderSoap(at, editavel);
@@ -316,11 +380,15 @@ async function renderFolhaRosto(aid) {
     ? "<ul>" + fr.medicamentos_ativos.map((m) => `<li><b>${esc(m.descricao)}</b>${m.posologia ? " — " + esc(m.posologia) : ""}</li>`).join("") + "</ul>"
     : '<p class="muted">Nenhum.</p>';
 
-  $("#fr-hist").innerHTML = fr.consultas_anteriores.length
-    ? fr.consultas_anteriores.map((h) => `<div style="border-bottom:1px solid var(--border);padding:6px 0">
-        <div class="muted">${fmtD(h.criado_em)} · ${esc(h.profissional ? h.profissional.nome : "")}</div>
-        ${esc((h.desfecho || "").replace(/_/g, " "))}</div>`).join("")
-    : '<p class="muted">Primeira consulta registrada.</p>';
+  const hist = $("#fr-hist");
+  if (!fr.consultas_anteriores.length) hist.innerHTML = '<p class="muted">Primeira consulta registrada.</p>';
+  else fr.consultas_anteriores.forEach((h) => {
+    const item = el(`<div style="border-bottom:1px solid var(--border);padding:6px 0;cursor:pointer">
+      <div class="muted">${fmtD(h.fim_atendimento || h.criado_em)} · ${esc(h.profissional ? h.profissional.nome : "")}</div>
+      ${esc((h.desfecho || "").replace(/_/g, " "))} <span class="muted">— ver</span></div>`);
+    item.onclick = () => verAtendimento(h.id);
+    hist.appendChild(item);
+  });
 
   const g = $("#fr-graf");
   const pa = fr.evolucao.filter((s) => s.tipo.startsWith("PA_"));
@@ -336,19 +404,24 @@ async function renderFolhaRosto(aid) {
 function renderSoap(at, editavel) {
   const box = $("#soap");
   const dis = editavel ? "" : "disabled";
+  const va = at.vitais_acolhimento || {};
+  const pv = (t) => (t in va ? ` value="${va[t]}"` : "");
+  const nota = Object.keys(va).length && !at.subjetivo
+    ? '<div class="muted" style="font-size:12px;margin-bottom:6px">Sinais vitais preenchidos a partir do acolhimento — ajuste se reaferir.</div>' : "";
   box.innerHTML = `<div class="soap">
     <div class="soap-bloco S"><h3><span class="soap-tag">S</span> Subjetivo</h3>
       <textarea id="s_sub" ${dis} placeholder="Queixa principal, história da doença atual, relato do cidadão…">${esc(at.subjetivo || "")}</textarea></div>
     <div class="soap-bloco O"><h3><span class="soap-tag">O</span> Objetivo</h3>
+      ${nota}
       <div class="grid4" style="margin-bottom:10px">
-        <div><label class="fld">PA sistólica</label><input id="v_pas" type="number" ${dis} placeholder="mmHg"/></div>
-        <div><label class="fld">PA diastólica</label><input id="v_pad" type="number" ${dis} placeholder="mmHg"/></div>
-        <div><label class="fld">Peso</label><input id="v_peso" type="number" step="0.1" ${dis} placeholder="kg"/></div>
-        <div><label class="fld">Altura</label><input id="v_alt" type="number" ${dis} placeholder="cm"/></div>
-        <div><label class="fld">Temperatura</label><input id="v_temp" type="number" step="0.1" ${dis} placeholder="°C"/></div>
-        <div><label class="fld">FC</label><input id="v_fc" type="number" ${dis} placeholder="bpm"/></div>
-        <div><label class="fld">SatO₂</label><input id="v_sat" type="number" ${dis} placeholder="%"/></div>
-        <div><label class="fld">Glicemia</label><input id="v_glic" type="number" ${dis} placeholder="mg/dL"/></div>
+        <div><label class="fld">PA sistólica</label><input id="v_pas" type="number" ${dis}${pv("PA_SISTOLICA")} placeholder="mmHg"/></div>
+        <div><label class="fld">PA diastólica</label><input id="v_pad" type="number" ${dis}${pv("PA_DIASTOLICA")} placeholder="mmHg"/></div>
+        <div><label class="fld">Peso</label><input id="v_peso" type="number" step="0.1" ${dis}${pv("PESO")} placeholder="kg"/></div>
+        <div><label class="fld">Altura</label><input id="v_alt" type="number" ${dis}${pv("ALTURA")} placeholder="cm"/></div>
+        <div><label class="fld">Temperatura</label><input id="v_temp" type="number" step="0.1" ${dis}${pv("TEMPERATURA")} placeholder="°C"/></div>
+        <div><label class="fld">FC</label><input id="v_fc" type="number" ${dis}${pv("FC")} placeholder="bpm"/></div>
+        <div><label class="fld">SatO₂</label><input id="v_sat" type="number" ${dis}${pv("SATO2")} placeholder="%"/></div>
+        <div><label class="fld">Glicemia</label><input id="v_glic" type="number" ${dis}${pv("GLICEMIA")} placeholder="mg/dL"/></div>
       </div>
       <textarea id="s_obj" ${dis} placeholder="Exame físico, achados objetivos…">${esc(at.objetivo || "")}</textarea></div>
     <div class="soap-bloco A"><h3><span class="soap-tag">A</span> Avaliação</h3>
@@ -528,6 +601,17 @@ function docExame(at, editavel) {
   };
 }
 
+function botoesImpressao(at) {
+  const wrap = el('<div class="row-actions" style="margin-top:10px"></div>');
+  const add = (rot, tipo) => { const b = el(`<button class="btn sec small">🖨️ ${rot}</button>`); b.onclick = () => imprimir(at.id, tipo); wrap.appendChild(b); };
+  add("Resumo do atendimento", "resumo");
+  if ((at.prescricoes || []).length) add("Receita", "receita");
+  if ((at.atestados || []).length) add("Atestado", "atestado");
+  if ((at.solicitacoes_exame || []).length) add("Sol. exames", "exames");
+  if ((at.encaminhamentos || []).length) add("Encaminhamento", "encaminhamento");
+  return wrap;
+}
+
 function renderFinalizar(at, editavel) {
   const box = $("#fim");
   if (at.assinado || at.status === "FINALIZADO") {
@@ -535,6 +619,7 @@ function renderFinalizar(at, editavel) {
 Desfecho: <b>${(at.desfecho || "").replace(/_/g, " ")}</b>${at.retorno_data ? " · retorno " + fmtD(at.retorno_data) : ""}
 ${at.desfecho_obs ? "\n" + esc(at.desfecho_obs) : ""}
 Assinado por ${esc(at.profissional ? at.profissional.nome : "")} em ${fmtDT(at.assinado_em)}.</div>`;
+    box.appendChild(botoesImpressao(at));
     return;
   }
   if (!editavel) { box.innerHTML = '<p class="muted">Somente o profissional responsável finaliza o atendimento.</p>'; return; }
@@ -555,6 +640,7 @@ Assinado por ${esc(at.profissional ? at.profissional.nome : "")} em ${fmtDT(at.a
     <div class="full"><label class="fld">Observações / orientações finais</label><textarea id="f_obs"></textarea></div>
     <div class="full"><button class="btn ok" id="f_fim">Finalizar atendimento e assinar</button></div>
   </div>`;
+  box.appendChild(botoesImpressao(at));
   const sync = () => {
     const v = $("#f_des").value;
     $("#f_ret_w").hidden = v !== "RETORNO_AGENDADO";
@@ -576,6 +662,91 @@ Assinado por ${esc(at.profissional ? at.profissional.nome : "")} em ${fmtDT(at.a
     } catch (e) { toast(e.message, true); }
   };
 }
+
+// visualização somente-leitura de um atendimento (histórico)
+async function verAtendimento(id) {
+  const at = await api(`/atendimentos/${id}`);
+  const probs = (at.problemas || []).map((p) => `${p.sistema} ${p.codigo} — ${p.descricao}`).join("<br>") || "—";
+  const presc = (at.prescricoes || []).map((p) => `${esc(p.medicamento)} — ${esc(p.posologia)}`).join("<br>") || "—";
+  const w = el(`<div>
+    <p class="muted">${fmtDT(at.fim_atendimento || at.criado_em)} · ${esc(at.profissional ? at.profissional.nome : "")} · desfecho: <b>${esc((at.desfecho || "-").replace(/_/g, " "))}</b></p>
+    <div class="soap-bloco S"><b>S</b> ${esc(at.subjetivo || "—")}</div>
+    <div class="soap-bloco O" style="margin-top:8px"><b>O</b> ${esc(at.objetivo || "—")}</div>
+    <div class="soap-bloco A" style="margin-top:8px"><b>A</b><br>${probs}<br>${esc(at.avaliacao || "")}</div>
+    <div class="soap-bloco P" style="margin-top:8px"><b>P</b> ${esc(at.plano || "—")}</div>
+    <p style="margin-top:10px"><b>Prescrição:</b><br>${presc}</p>
+  </div>`);
+  const pr = el('<button class="btn sec small" style="margin-top:8px">🖨️ Imprimir resumo</button>');
+  pr.onclick = () => imprimir(id, "resumo");
+  w.appendChild(pr);
+  openModal("Atendimento anterior", w);
+}
+
+// ═════════ RETORNOS ═════════
+views.retornos = async () => {
+  viewEl.innerHTML = `<div class="page-head"><h1 class="title">Retornos agendados</h1>
+    <select id="dias" style="width:auto"><option value="7">7 dias</option><option value="14" selected>14 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div>
+    <div class="panel" id="lista"></div>`;
+  const carregar = async () => {
+    const l = await api(`/relatorios/retornos?dias=${$("#dias").value}`);
+    const box = $("#lista"); box.innerHTML = "";
+    if (!l.length) return (box.innerHTML = '<p class="empty">Nenhum retorno agendado no período.</p>');
+    const recep = ["RECEPCAO", "ENFERMEIRO"].includes(user.perfil);
+    const t = el(`<table><thead><tr><th>Data do retorno</th><th>Cidadão</th><th>Profissional que agendou</th><th></th></tr></thead><tbody></tbody></table>`);
+    l.forEach((a) => {
+      const tr = el(`<tr><td><b>${fmtD(a.retorno_data)}</b></td>
+        <td>${esc(a.cidadao ? (a.cidadao.nome_social || a.cidadao.nome_completo) : "-")}</td>
+        <td>${esc(a.profissional ? a.profissional.nome : "-")}</td><td class="row-actions"></td></tr>`);
+      if (recep && a.cidadao) {
+        const b = el('<button class="btn small">Colocar na fila</button>');
+        b.onclick = async () => {
+          try { await api("/fila", { method: "POST", body: JSON.stringify({ cidadao_id: a.cidadao.id, tipo: "RETORNO", motivo: "Retorno agendado" }) }); toast("Adicionado à fila"); }
+          catch (e) { toast(e.message, true); }
+        };
+        $(".row-actions", tr).appendChild(b);
+      }
+      t.querySelector("tbody").appendChild(tr);
+    });
+    box.appendChild(t);
+  };
+  $("#dias").onchange = carregar;
+  carregar();
+};
+
+// ═════════ RELATÓRIOS ═════════
+views.relatorios = async () => {
+  const hoje = hojeInput();
+  const mes = hoje.slice(0, 8) + "01";
+  viewEl.innerHTML = `<div class="page-head"><h1 class="title">Relatório de produção</h1></div>
+    <div class="panel"><div class="toolbar">
+      <label class="fld">De <input type="date" id="r_de" value="${mes}"></label>
+      <label class="fld">Até <input type="date" id="r_ate" value="${hoje}"></label>
+      <button class="btn" id="r_go">Gerar</button>
+      <button class="btn sec" id="r_csv">Baixar CSV</button>
+    </div></div>
+    <div id="r_out"></div>`;
+  const tabela = (titulo, linhas, cols) => `<div class="panel"><h3>${titulo}</h3>
+    ${linhas.length ? `<table><tbody>${linhas.map((r) => `<tr>${cols(r)}</tr>`).join("")}</tbody></table>` : '<p class="muted">Sem dados.</p>'}</div>`;
+  const gerar = async () => {
+    const de = $("#r_de").value, ate = $("#r_ate").value;
+    const d = await api(`/relatorios/producao?de=${de}&ate=${ate}`);
+    $("#r_out").innerHTML = `
+      <div class="cards"><div class="card"><div class="k">Atendimentos finalizados</div><div class="v">${d.total}</div></div></div>
+      ${tabela("Por profissional", d.por_profissional, (r) => `<td>${esc(r.nome)}</td><td><b>${r.total}</b></td>`)}
+      ${tabela("Por desfecho", d.por_desfecho, (r) => `<td>${esc(r.nome.replace(/_/g, " "))}</td><td><b>${r.total}</b></td>`)}
+      ${tabela("Por classificação de risco", d.por_risco, (r) => `<td>${esc(r.nome)}</td><td><b>${r.total}</b></td>`)}
+      ${tabela("CID/CIAP mais frequentes", d.por_cid, (r) => `<td>${esc(r.codigo)}</td><td>${esc(r.descricao)}</td><td><b>${r.total}</b></td>`)}`;
+  };
+  $("#r_go").onclick = gerar;
+  $("#r_csv").onclick = async () => {
+    const de = $("#r_de").value, ate = $("#r_ate").value;
+    const r = await fetch(`/api/relatorios/producao.csv?de=${de}&ate=${ate}`, { headers: { Authorization: `Bearer ${token}` } });
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = `producao_${de}_${ate}.csv`; a.click();
+  };
+  gerar();
+};
 
 // ═════════ CIDADÃOS ═════════
 views.cidadaos = async () => {
@@ -629,16 +800,18 @@ function cidadaoForm(c, reload) {
 }
 
 async function fichaCidadao(cid) {
-  const [c, alergias, meds] = await Promise.all([
+  const [c, alergias, meds, atends] = await Promise.all([
     api(`/cidadaos/${cid}`), api(`/cidadaos/${cid}/alergias`), api(`/cidadaos/${cid}/medicamentos`),
+    api(`/atendimentos?cidadao_id=${cid}`),
   ]);
   const clinico = ["MEDICO", "ENFERMEIRO"].includes(user.perfil);
   const w = el(`<div>
-    <p class="muted">${c.idade} anos · ${c.sexo} · nasc. ${fmtD(c.data_nascimento)} · CPF ${esc(c.cpf || "-")}</p>
+    <p class="muted">${c.idade} anos · ${c.sexo} · nasc. ${fmtD(c.data_nascimento)} · CPF ${esc(c.cpf || "-")} · CNS ${esc(c.cns || "-")}</p>
     <h3>Alergias</h3><div id="fc-al"></div>
     ${clinico ? '<button class="btn small" id="fc-al-add" style="margin:6px 0">+ Alergia</button>' : ""}
     <h3 style="margin-top:14px">Medicamentos em uso</h3><div id="fc-md"></div>
     ${clinico ? '<button class="btn small" id="fc-md-add" style="margin:6px 0">+ Medicamento</button>' : ""}
+    <h3 style="margin-top:14px">Linha do tempo (${atends.length})</h3><div id="fc-tl"></div>
   </div>`);
   const pinta = () => {
     $("#fc-al", w).innerHTML = alergias.length ? alergias.map((a) =>
@@ -647,6 +820,15 @@ async function fichaCidadao(cid) {
       `<li>${esc(m.descricao)}${m.posologia ? " — " + esc(m.posologia) : ""}</li>`).join("") + "</ul>" : '<p class="muted">Nenhum.</p>';
   };
   pinta();
+  const tl = $("#fc-tl", w);
+  if (!atends.length) tl.innerHTML = '<p class="muted">Nenhum atendimento.</p>';
+  atends.forEach((a) => {
+    const it = el(`<div style="border-left:3px solid var(--border);padding:4px 0 4px 10px;margin:4px 0;cursor:pointer">
+      <span class="muted">${fmtD(a.fim_atendimento || a.criado_em)}</span> · ${stBadge(a.status)}
+      ${a.desfecho ? "· " + esc(a.desfecho.replace(/_/g, " ")) : ""} <span class="muted">${esc(a.profissional ? "· " + a.profissional.nome : "")}</span></div>`);
+    if (a.status === "FINALIZADO") it.onclick = () => verAtendimento(a.id);
+    tl.appendChild(it);
+  });
   openModal("Ficha — " + (c.nome_social || c.nome_completo), w);
   if (clinico) {
     $("#fc-al-add", w).onclick = () => formModal({

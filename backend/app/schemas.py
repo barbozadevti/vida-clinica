@@ -160,6 +160,21 @@ class FilaIn(BaseModel):
     classificacao_risco: str | None = None
 
 
+class AcolhimentoIn(BaseModel):
+    classificacao_risco: str | None = None
+    anotacao: str | None = None
+    motivo: str | None = None
+    pa_sistolica: float | None = None
+    pa_diastolica: float | None = None
+    peso: float | None = None
+    altura: float | None = None
+    temperatura: float | None = None
+    freq_cardiaca: float | None = None
+    freq_respiratoria: float | None = None
+    saturacao: float | None = None
+    glicemia: float | None = None
+
+
 class ProblemaIn(BaseModel):
     sistema: str = Field(pattern="^(CID10|CIAP2)$")
     codigo: str
@@ -214,8 +229,10 @@ class AtendimentoResumo(ORM):
     criado_em: datetime
     inicio_atendimento: datetime | None = None
     fim_atendimento: datetime | None = None
+    retorno_data: date | None = None
     desfecho: str | None = None
     assinado: bool = False
+    acolhido_em: datetime | None = None
     cidadao: CidadaoResumo | None = None
     profissional: UsuarioResumo | None = None
 
@@ -277,6 +294,10 @@ class AtendimentoOut(ORM):
     tipo: str
     motivo: str | None = None
     classificacao_risco: str | None = None
+    acolhimento: str | None = None
+    acolhido_em: datetime | None = None
+    acolhido_por: UsuarioResumo | None = None
+    vitais_acolhimento: dict = {}
     criado_em: datetime
     inicio_atendimento: datetime | None = None
     fim_atendimento: datetime | None = None
@@ -320,6 +341,25 @@ class ExameCatalogoOut(ORM):
 
 class PainelOut(BaseModel):
     aguardando: int
+    sem_classificacao: int
+    em_acolhimento_pendente: int
     em_atendimento: int
     finalizados_hoje: int
     cidadaos: int
+    retornos_7dias: int
+    producao_hoje: list[dict] = []  # [{profissional, total}]
+
+
+class ReabrirIn(BaseModel):
+    motivo: str = Field(min_length=3)
+
+
+# ─────────── Relatórios ───────────
+class ProducaoOut(BaseModel):
+    periodo_de: date
+    periodo_ate: date
+    total: int
+    por_profissional: list[dict]
+    por_desfecho: list[dict]
+    por_cid: list[dict]
+    por_risco: list[dict]

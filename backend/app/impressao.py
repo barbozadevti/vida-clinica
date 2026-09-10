@@ -109,4 +109,36 @@ def render(tipo: str, at: Atendimento) -> str:
         prio = f'<p><b>Prioridade:</b> {_e(s.prioridade)}</p>'
         return _pagina("Solicitação de Exames", f"<ol>{linhas}</ol>{extra}{prio}", at)
 
+    if tipo == "encaminhamento":
+        if not at.encaminhamentos:
+            raise ValueError("Nenhum encaminhamento neste atendimento")
+        e = at.encaminhamentos[-1]
+        corpo = (f'<p><b>Especialidade:</b> {_e(e.especialidade)}</p>'
+                 f'<p><b>Prioridade:</b> {_e(e.prioridade)}</p>'
+                 f'<p><b>Motivo do encaminhamento / resumo clínico:</b></p>'
+                 f'<p>{_e(e.motivo)}</p>')
+        if at.avaliacao:
+            corpo += f'<p><b>Avaliação:</b> {_e(at.avaliacao)}</p>'
+        return _pagina("Encaminhamento", corpo, at)
+
+    if tipo == "resumo":
+        def sec(t, v):
+            return f'<p><b>{t}:</b><br>{_e(v)}</p>' if v else ""
+        probs = "".join(f"<li>{_e(p.sistema)} {_e(p.codigo)} — {_e(p.descricao)}</li>"
+                        for p in at.problemas)
+        presc = "".join(f"<li>{_e(p.medicamento)} — {_e(p.posologia)}</li>"
+                        for p in at.prescricoes)
+        corpo = (
+            sec("S — Subjetivo", at.subjetivo)
+            + sec("O — Objetivo", at.objetivo)
+            + (f'<p><b>A — Avaliação</b></p><ul>{probs}</ul>' if probs else "")
+            + sec("", at.avaliacao)
+            + sec("P — Plano", at.plano)
+            + (f'<p><b>Prescrição:</b></p><ul>{presc}</ul>' if presc else "")
+            + (f'<p><b>Desfecho:</b> {_e((at.desfecho or "").replace("_", " "))}'
+               + (f' — retorno em {at.retorno_data.strftime("%d/%m/%Y")}' if at.retorno_data else "")
+               + "</p>" if at.desfecho else "")
+        )
+        return _pagina("Resumo do Atendimento", corpo, at)
+
     raise ValueError("Tipo de documento inválido")

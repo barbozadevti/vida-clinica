@@ -1,7 +1,7 @@
 """Cria as tabelas e popula dados iniciais quando o banco está vazio."""
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from . import catalogos_seed as cat
 from .database import Base, SessionLocal, engine
@@ -139,8 +139,26 @@ def _seed_demo(db) -> None:
     print("[bootstrap] usuários e dados de exemplo criados (senha: 123456)")
 
 
+# colunas adicionadas após a criação inicial (migração leve, Postgres)
+_MIGRACOES = [
+    "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhimento TEXT",
+    "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhido_por_id UUID REFERENCES usuarios(id)",
+    "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhido_em TIMESTAMPTZ",
+]
+
+
+def _migrar() -> None:
+    with engine.begin() as conn:
+        for sql in _MIGRACOES:
+            try:
+                conn.exec_driver_sql(sql)
+            except Exception as e:  # tabela ainda não existe: create_all cuida
+                print(f"[migração] {sql[:50]}… -> {e}")
+
+
 def inicializar() -> None:
     Base.metadata.create_all(bind=engine)
+    _migrar()
     with SessionLocal() as db:
         _seed_catalogos(db)
         _seed_demo(db)

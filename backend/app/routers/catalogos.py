@@ -1,4 +1,4 @@
-from datetime import datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, or_, select
@@ -68,14 +68,29 @@ def exames(q: str | None = Query(default=None), _: Usuario = Depends(usuario_atu
 
 @router.get("/painel", response_model=PainelOut, tags=["painel"])
 def painel(_: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
-    inicio_dia = datetime.combine(datetime.now(timezone.utc).date(), time.min)
+    ini = datetime.combine(datetime.now(timezone.utc).date(), time.min)
+    hoje = date.today()
+    cnt = lambda *w: db.scalar(select(func.count(Atendimento.id)).where(*w)) or 0
+
+    prod = db.execute(
+        select(Atendimento.profissional_id, func.count().label("n"))
+        .where(Atendimento.status == "FINALIZADO", Atendimento.fim_atendimento >= ini)
+        .group_by(Atendimento.profissional_id)
+    ).all()
+    nomes = {u.id: u.nome for u in db.scalars(select(Usuario))}
     return PainelOut(
-        aguardando=db.scalar(select(func.count(Atendimento.id)).where(
-            Atendimento.status == "AGUARDANDO")) or 0,
-        em_atendimento=db.scalar(select(func.count(Atendimento.id)).where(
-            Atendimento.status == "EM_ATENDIMENTO")) or 0,
-        finalizados_hoje=db.scalar(select(func.count(Atendimento.id)).where(
-            Atendimento.status == "FINALIZADO",
-            Atendimento.fim_atendimento >= inicio_dia)) or 0,
+        aguardando=cnt(Atendimento.status == "AGUARDANDO"),
+        sem_classificacao=cnt(Atendimento.status == "AGUARDANDO",
+                              Atendimento.classificacao_risco.is_(None)),
+        em_acolhimento_pendente=cnt(Atendimento.status == "AGUARDANDO",
+                                    Atendimento.acolhido_em.is_(None)),
+        em_atendimento=cnt(Atendimento.status == "EM_ATENDIMENTO"),
+        finalizados_hoje=cnt(Atendimento.status == "FINALIZADO",
+                             Atendimento.fim_atendimento >= ini),
         cidadaos=db.scalar(select(func.count(Cidadao.id))) or 0,
+        retornos_7dias=cnt(Atendimento.desfecho == "RETORNO_AGENDADO",
+                           Atendimento.retorno_data >= hoje,
+                           Atendimento.retorno_data <= hoje + timedelta(days=7)),
+        producao_hoje=[{"profissional": nomes.get(pid, "—"), "total": n}
+                       for pid, n in prod],
     )

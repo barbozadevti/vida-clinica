@@ -138,6 +138,11 @@ class Atendimento(Base):
     motivo: Mapped[str | None] = mapped_column(String(255))  # queixa dita no acolhimento
     classificacao_risco: Mapped[str | None] = mapped_column(String(12))  # AZUL|VERDE|AMARELO|LARANJA|VERMELHO
 
+    # acolhimento / pré-consulta da enfermagem
+    acolhimento: Mapped[str | None] = mapped_column(Text)
+    acolhido_por_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id"))
+    acolhido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     inicio_atendimento: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fim_atendimento: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -159,6 +164,9 @@ class Atendimento(Base):
     cidadao: Mapped["Cidadao"] = relationship(back_populates="atendimentos", lazy="joined")
     profissional: Mapped["Usuario | None"] = relationship(
         foreign_keys=[profissional_id], lazy="joined"
+    )
+    acolhido_por: Mapped["Usuario | None"] = relationship(
+        foreign_keys=[acolhido_por_id], lazy="joined"
     )
     problemas: Mapped[list["ProblemaAtendimento"]] = relationship(
         back_populates="atendimento", cascade="all, delete-orphan"

@@ -15,6 +15,7 @@ from .routers import (
     cidadaos,
     documentos,
     fila,
+    relatorios,
     usuarios,
 )
 
@@ -47,7 +48,7 @@ async def _sem_cache(request, call_next):
     return resp
 
 
-for r in (auth, usuarios, cidadaos, fila, atendimentos, documentos, catalogos):
+for r in (auth, usuarios, cidadaos, fila, atendimentos, documentos, relatorios, catalogos):
     app.include_router(r.router)
 
 
