@@ -10,11 +10,19 @@ autenticação JWT com perfis (MÉDICO, ENFERMEIRO, RECEPÇÃO, ADMIN).
 
 | Passo | Tela | O que faz |
 |---|---|---|
-| **1. Lista de atendimento** | *Atendimento do dia* | Fila de cidadãos aguardando (ordenada por classificação de risco). A recepção adiciona à fila; o profissional clica **Atender** → status muda para *Em atendimento* e abre o prontuário. |
+| **1. Lista de atendimento** | *Atendimento do dia* | Fila de cidadãos aguardando (ordenada por classificação de risco). A recepção adiciona à fila; a **enfermagem faz o acolhimento** (sinais vitais + classificação de risco de Manchester); o profissional clica **Atender** → status muda para *Em atendimento* e abre o prontuário. Os sinais vitais do acolhimento já vêm preenchidos no bloco O do SOAP. |
 | **2. Folha de rosto** | topo do prontuário | **Alergias em vermelho**, medicamentos em uso, consultas anteriores e **gráficos de evolução** (pressão arterial, peso, IMC, glicemia). |
 | **3. Registro clínico (SOAP)** | 4 blocos coloridos | **S** subjetivo (queixa) · **O** objetivo (sinais vitais estruturados: PA, peso, altura, temperatura, FC, SatO₂, glicemia + exame físico) · **A** avaliação (diagnóstico + busca de **CID-10 / CIAP-2**) · **P** plano/conduta. |
 | **4. Prescrição e documentos** | abas | **Prescrever medicamentos** (busca na farmácia municipal), **Atestado** (texto gerado automaticamente) e **Solicitação de exames** (catálogo do SUS). |
-| **5. Finalização** | botão verde | Define o **desfecho** (Alta / Retorno agendado / Encaminhamento / Observação) e **assina digitalmente** → o prontuário fica bloqueado para edição e o cidadão sai da fila. |
+| **5. Finalização** | botão verde | Define o **desfecho** (Alta / Retorno agendado / Encaminhamento / Observação) e **assina** → o prontuário fica bloqueado para edição e o cidadão sai da fila. Botões de impressão: **resumo do atendimento** e **encaminhamento**. |
+
+### Além dos 5 passos
+
+- **Retornos agendados** — aba com a lista de retornos previstos; a recepção coloca o cidadão de volta na fila com um clique.
+- **Linha do tempo do cidadão** — na ficha, todos os atendimentos anteriores; clique para ver o SOAP completo (somente leitura).
+- **Relatório de produção** — por profissional, desfecho, classificação de risco e CID/CIAP mais frequentes, com **exportação CSV** (para envio/consolidação).
+- **Painel** — aguardando, sem acolhimento, em atendimento, finalizados hoje, retornos da semana e produção de cada profissional no dia.
+- **Reabrir atendimento** — ADMIN pode reabrir um atendimento finalizado (registra o motivo no prontuário).
 
 ## Rodar no PC
 
@@ -54,10 +62,11 @@ esus/
 │   ├── security.py        # bcrypt + JWT + guardas de perfil
 │   ├── models.py          # tabelas SQLAlchemy
 │   ├── schemas.py
-│   ├── bootstrap.py       # create_all + seed (usuários, catálogos, exemplos)
+│   ├── bootstrap.py       # create_all + migração leve + seed
 │   ├── catalogos_seed.py  # listas de CID-10, CIAP-2, medicamentos, exames
+│   ├── impressao.py       # HTML A4 dos documentos
 │   └── routers/           # auth, usuarios, cidadaos, fila, atendimentos,
-│                          # documentos, catalogos
+│                          # documentos, relatorios, catalogos
 ├── frontend/              # index.html + assets (app.js, styles.css)
 ├── scripts/               # pg.ps1, reset_db.ps1
 ├── Dockerfile + render.yaml   # deploy na nuvem (Render)
