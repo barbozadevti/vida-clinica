@@ -247,9 +247,12 @@ class Encaminhamento(Base):
 
     id: Mapped[uuid.UUID] = _pk()
     atendimento_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("atendimentos.id", ondelete="CASCADE"))
+    tipo: Mapped[str] = mapped_column(String(28), default="CONSULTA_ESPECIALIZADA")
+    # CONSULTA_ESPECIALIZADA | AVALIACAO_CIRURGICA | EXAMES_ESPECIALIZADOS | URGENCIA | OUTRO
     especialidade: Mapped[str] = mapped_column(String(120))
+    cid: Mapped[str | None] = mapped_column(String(10))
     motivo: Mapped[str] = mapped_column(Text)
-    prioridade: Mapped[str] = mapped_column(String(10), default="ROTINA")
+    prioridade: Mapped[str] = mapped_column(String(12), default="ROTINA")
 
     atendimento: Mapped["Atendimento"] = relationship(back_populates="encaminhamentos")
 

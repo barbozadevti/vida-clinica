@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -21,7 +22,9 @@ from ..schemas import (
     SolicitacaoExameOut,
 )
 from ..impressao import render as render_doc
+from ..impressao import render_pdf
 from ..models import Usuario as _U
+from ..util import com_vitais
 from ..security import exigir_perfis, usuario_atual
 
 router = APIRouter(prefix="/api/atendimentos", tags=["documentos (Passo 4)"])
@@ -136,14 +139,31 @@ def remover_solicitacao(aid: str, sid: str, usuario: Usuario = Depends(_CLINICO)
     db.commit()
 
 
-# ─────────── Impressão (receita | atestado | exames) ───────────
+# ─── Documentos (receita | atestado | exames | encaminhamento | resumo) ───
 @router.get("/{aid}/documento/{tipo}")
 def documento_impressao(aid: str, tipo: str, _: _U = Depends(usuario_atual),
                         db: Session = Depends(get_db)):
     at = db.get(Atendimento, aid)
     if not at:
         raise HTTPException(404, "Atendimento não encontrado")
+    com_vitais(db, at)
     try:
         return {"html": render_doc(tipo, at)}
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+@router.get("/{aid}/pdf/{tipo}")
+def documento_pdf(aid: str, tipo: str, _: _U = Depends(usuario_atual),
+                  db: Session = Depends(get_db)):
+    at = db.get(Atendimento, aid)
+    if not at:
+        raise HTTPException(404, "Atendimento não encontrado")
+    com_vitais(db, at)
+    try:
+        pdf = render_pdf(tipo, at)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    nome = f"{tipo}_{(at.cidadao.nome_completo or 'doc').split()[0].lower()}.pdf"
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})

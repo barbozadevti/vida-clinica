@@ -76,7 +76,7 @@ function formModal({ title, fields, values = {}, onSubmit, submitLabel = "Salvar
   openModal(title, f);
 }
 
-// abre o documento (receita/atestado/exames) numa aba nova e manda imprimir
+// abre o documento numa aba nova e manda imprimir
 async function imprimir(atId, tipo) {
   try {
     const { html } = await api(`/atendimentos/${atId}/documento/${tipo}`);
@@ -84,6 +84,29 @@ async function imprimir(atId, tipo) {
     if (!w) return toast("Permita pop-ups para imprimir", true);
     w.document.open(); w.document.write(html); w.document.close();
   } catch (e) { toast(e.message, true); }
+}
+
+// baixa o PDF do documento
+async function baixarPdf(atId, tipo) {
+  try {
+    const r = await fetch(`${API}/atendimentos/${atId}/pdf/${tipo}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${tipo}.pdf`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch (e) { toast(e.message, true); }
+}
+
+// par de botões Imprimir + PDF
+function botoesDoc(atId, tipo, rotulo) {
+  const w = el('<span class="row-actions" style="display:inline-flex;margin-right:6px"></span>');
+  const i = el(`<button class="btn sec small">🖨️ ${rotulo}</button>`); i.onclick = () => imprimir(atId, tipo);
+  const p = el('<button class="btn sec small">PDF</button>'); p.onclick = () => baixarPdf(atId, tipo);
+  w.append(i, p);
+  return w;
 }
 
 // autocomplete de catálogo → chama cb({label,value,...})
@@ -508,11 +531,7 @@ function docPresc(at, editavel) {
     });
   };
   pinta(); b.appendChild(lista);
-  if ((at.prescricoes || []).length) {
-    const pr = el('<button class="btn sec small" style="margin-top:10px">🖨️ Imprimir receita</button>');
-    pr.onclick = () => imprimir(at.id, "receita");
-    b.appendChild(pr);
-  }
+  if ((at.prescricoes || []).length) b.appendChild(el('<div style="margin-top:10px"></div>')).appendChild(botoesDoc(at.id, "receita", "Imprimir receita"));
   if (!editavel) return;
   const form = el(`<div class="grid3" style="margin-top:12px">
     <div class="full" id="med-ac"></div>
@@ -543,11 +562,7 @@ function docAtest(at, editavel) {
   const b = $("#doc-body"); b.innerHTML = "";
   (at.atestados || []).forEach((a) => b.appendChild(el(`<div class="doc-preview" style="margin-bottom:10px">${esc(a.texto)}</div>`)));
   if (!(at.atestados || []).length) b.appendChild(el('<p class="muted">Nenhum atestado emitido.</p>'));
-  if ((at.atestados || []).length) {
-    const pr = el('<button class="btn sec small">🖨️ Imprimir atestado</button>');
-    pr.onclick = () => imprimir(at.id, "atestado");
-    b.appendChild(pr);
-  }
+  if ((at.atestados || []).length) b.appendChild(botoesDoc(at.id, "atestado", "Imprimir atestado"));
   if (!editavel) return;
   const form = el(`<div class="grid3" style="margin-top:12px">
     <div><label class="fld">Tipo</label><select id="a_tipo"><option value="COMPARECIMENTO">Comparecimento</option><option value="AFASTAMENTO">Afastamento</option></select></div>
@@ -571,11 +586,7 @@ function docExame(at, editavel) {
   (at.solicitacoes_exame || []).forEach((s) => b.appendChild(el(
     `<div class="doc-preview" style="margin-bottom:10px"><b>${s.prioridade}</b>\n${esc(s.exames)}${s.indicacao_clinica ? "\n\nIndicação: " + esc(s.indicacao_clinica) : ""}</div>`)));
   if (!(at.solicitacoes_exame || []).length) b.appendChild(el('<p class="muted">Nenhuma solicitação.</p>'));
-  if ((at.solicitacoes_exame || []).length) {
-    const pr = el('<button class="btn sec small">🖨️ Imprimir solicitação</button>');
-    pr.onclick = () => imprimir(at.id, "exames");
-    b.appendChild(pr);
-  }
+  if ((at.solicitacoes_exame || []).length) b.appendChild(botoesDoc(at.id, "exames", "Imprimir requisição"));
   if (!editavel) return;
   const form = el(`<div style="margin-top:12px">
     <div id="ex-ac"></div>
@@ -602,13 +613,12 @@ function docExame(at, editavel) {
 }
 
 function botoesImpressao(at) {
-  const wrap = el('<div class="row-actions" style="margin-top:10px"></div>');
-  const add = (rot, tipo) => { const b = el(`<button class="btn sec small">🖨️ ${rot}</button>`); b.onclick = () => imprimir(at.id, tipo); wrap.appendChild(b); };
-  add("Resumo do atendimento", "resumo");
-  if ((at.prescricoes || []).length) add("Receita", "receita");
-  if ((at.atestados || []).length) add("Atestado", "atestado");
-  if ((at.solicitacoes_exame || []).length) add("Sol. exames", "exames");
-  if ((at.encaminhamentos || []).length) add("Encaminhamento", "encaminhamento");
+  const wrap = el('<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>');
+  wrap.appendChild(botoesDoc(at.id, "resumo", "Resumo"));
+  if ((at.prescricoes || []).length) wrap.appendChild(botoesDoc(at.id, "receita", "Receita"));
+  if ((at.atestados || []).length) wrap.appendChild(botoesDoc(at.id, "atestado", "Atestado"));
+  if ((at.solicitacoes_exame || []).length) wrap.appendChild(botoesDoc(at.id, "exames", "Requisição de exames"));
+  if ((at.encaminhamentos || []).length) wrap.appendChild(botoesDoc(at.id, "encaminhamento", "Guia de encaminhamento"));
   return wrap;
 }
 
@@ -633,9 +643,16 @@ Assinado por ${esc(at.profissional ? at.profissional.nome : "")} em ${fmtDT(at.a
     <div id="f_ret_w" hidden><label class="fld">Data do retorno</label><input id="f_ret" type="date"/></div>
     <div class="full" id="f_enc_w" hidden>
       <div class="grid3">
-        <div><label class="fld">Especialidade</label><input id="f_esp"/></div>
+        <div><label class="fld">Tipo</label><select id="f_tipo">
+          <option value="CONSULTA_ESPECIALIZADA">Consulta com especialista</option>
+          <option value="AVALIACAO_CIRURGICA">Avaliação / procedimento cirúrgico</option>
+          <option value="EXAMES_ESPECIALIZADOS">Exames especializados</option>
+          <option value="URGENCIA">Urgência / emergência</option></select></div>
+        <div><label class="fld">Especialidade / serviço</label><input id="f_esp" placeholder="ex.: Ortopedia / Coluna"/></div>
         <div><label class="fld">Prioridade</label><select id="f_pri"><option>ROTINA</option><option>PRIORITARIO</option><option>URGENTE</option></select></div>
-        <div class="full"><label class="fld">Motivo do encaminhamento</label><textarea id="f_mot"></textarea></div>
+        <div class="full" id="f_cid-ac"></div>
+        <div class="full"><label class="fld">CID</label><input id="f_cid" placeholder="vazio = usa os CIDs da avaliação"/></div>
+        <div class="full"><label class="fld">Motivo / resumo clínico</label><textarea id="f_mot"></textarea></div>
       </div></div>
     <div class="full"><label class="fld">Observações / orientações finais</label><textarea id="f_obs"></textarea></div>
     <div class="full"><button class="btn ok" id="f_fim">Finalizar atendimento e assinar</button></div>
@@ -647,13 +664,17 @@ Assinado por ${esc(at.profissional ? at.profissional.nome : "")} em ${fmtDT(at.a
     $("#f_enc_w").hidden = !v.startsWith("ENCAMINHAMENTO");
   };
   $("#f_des").onchange = sync; sync();
+  $("#f_cid-ac").appendChild(autocomplete("/catalogo/cid10", "Buscar CID-10…", (it) => { $("#f_cid").value = `${it.codigo} — ${it.descricao}`; }));
   $("#f_fim").onclick = async () => {
     const v = $("#f_des").value;
+    const enc = v.startsWith("ENCAMINHAMENTO");
     const body = { desfecho: v, desfecho_obs: $("#f_obs").value || null,
       retorno_data: v === "RETORNO_AGENDADO" ? ($("#f_ret").value || null) : null,
-      encaminhamento_especialidade: v.startsWith("ENCAMINHAMENTO") ? $("#f_esp").value : null,
-      encaminhamento_motivo: v.startsWith("ENCAMINHAMENTO") ? $("#f_mot").value : null,
-      encaminhamento_prioridade: v.startsWith("ENCAMINHAMENTO") ? $("#f_pri").value : "ROTINA" };
+      encaminhamento_tipo: enc ? $("#f_tipo").value : "CONSULTA_ESPECIALIZADA",
+      encaminhamento_especialidade: enc ? $("#f_esp").value : null,
+      encaminhamento_cid: enc ? ($("#f_cid").value || null) : null,
+      encaminhamento_motivo: enc ? $("#f_mot").value : null,
+      encaminhamento_prioridade: enc ? $("#f_pri").value : "ROTINA" };
     if (!confirm("Finalizar e assinar? O prontuário ficará bloqueado para edição.")) return;
     try {
       await api(`/atendimentos/${at.id}/finalizar`, { method: "POST", body: JSON.stringify(body) });
@@ -676,9 +697,8 @@ async function verAtendimento(id) {
     <div class="soap-bloco P" style="margin-top:8px"><b>P</b> ${esc(at.plano || "—")}</div>
     <p style="margin-top:10px"><b>Prescrição:</b><br>${presc}</p>
   </div>`);
-  const pr = el('<button class="btn sec small" style="margin-top:8px">🖨️ Imprimir resumo</button>');
-  pr.onclick = () => imprimir(id, "resumo");
-  w.appendChild(pr);
+  const bd = el('<div style="margin-top:8px"></div>'); bd.appendChild(botoesDoc(id, "resumo", "Resumo"));
+  w.appendChild(bd);
   openModal("Atendimento anterior", w);
 }
 

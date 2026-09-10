@@ -206,7 +206,9 @@ class FinalizarIn(BaseModel):
     desfecho: str
     desfecho_obs: str | None = None
     retorno_data: date | None = None
+    encaminhamento_tipo: str = "CONSULTA_ESPECIALIZADA"
     encaminhamento_especialidade: str | None = None
+    encaminhamento_cid: str | None = None
     encaminhamento_motivo: str | None = None
     encaminhamento_prioridade: str = "ROTINA"
 
@@ -283,7 +285,9 @@ class SolicitacaoExameOut(SolicitacaoExameIn, ORM):
 
 class EncaminhamentoOut(ORM):
     id: uuid.UUID
+    tipo: str = "CONSULTA_ESPECIALIZADA"
     especialidade: str
+    cid: str | None = None
     motivo: str
     prioridade: str
 

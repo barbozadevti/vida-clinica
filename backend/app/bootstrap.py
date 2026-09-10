@@ -144,6 +144,8 @@ _MIGRACOES = [
     "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhimento TEXT",
     "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhido_por_id UUID REFERENCES usuarios(id)",
     "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhido_em TIMESTAMPTZ",
+    "ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS tipo VARCHAR(28) DEFAULT 'CONSULTA_ESPECIALIZADA'",
+    "ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS cid VARCHAR(10)",
 ]
 
 

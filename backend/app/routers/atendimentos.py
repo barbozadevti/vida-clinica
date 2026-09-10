@@ -187,6 +187,10 @@ def add_problema(aid: str, dados: ProblemaIn, usuario: Usuario = Depends(_CLINIC
                  db: Session = Depends(get_db)):
     at = _get(db, aid)
     _pode_editar(at, usuario)
+    ja = next((x for x in at.problemas
+               if x.sistema == dados.sistema and x.codigo == dados.codigo), None)
+    if ja:
+        return ja
     p = ProblemaAtendimento(atendimento_id=at.id, **dados.model_dump())
     db.add(p)
     db.commit()
@@ -222,7 +226,9 @@ def finalizar(aid: str, dados: FinalizarIn, usuario: Usuario = Depends(_CLINICO)
             raise HTTPException(400, "Informe especialidade e motivo do encaminhamento")
         db.add(Encaminhamento(
             atendimento_id=at.id,
+            tipo=(dados.encaminhamento_tipo or "CONSULTA_ESPECIALIZADA").upper(),
             especialidade=dados.encaminhamento_especialidade,
+            cid=dados.encaminhamento_cid,
             motivo=dados.encaminhamento_motivo,
             prioridade=(dados.encaminhamento_prioridade or "ROTINA").upper(),
         ))
