@@ -13,8 +13,15 @@ autenticação JWT com perfis (MÉDICO, ENFERMEIRO, RECEPÇÃO, ADMIN).
 | **1. Lista de atendimento** | *Atendimento do dia* | Fila de cidadãos aguardando (ordenada por classificação de risco). A recepção adiciona à fila; a **enfermagem faz o acolhimento** (sinais vitais + classificação de risco de Manchester); o profissional clica **Atender** → status muda para *Em atendimento* e abre o prontuário. Os sinais vitais do acolhimento já vêm preenchidos no bloco O do SOAP. |
 | **2. Folha de rosto** | topo do prontuário | **Alergias em vermelho**, medicamentos em uso, consultas anteriores e **gráficos de evolução** (pressão arterial, peso, IMC, glicemia). |
 | **3. Registro clínico (SOAP)** | 4 blocos coloridos | **S** subjetivo (queixa) · **O** objetivo (sinais vitais estruturados: PA, peso, altura, temperatura, FC, SatO₂, glicemia + exame físico) · **A** avaliação (diagnóstico + busca de **CID-10 / CIAP-2**) · **P** plano/conduta. |
-| **4. Prescrição e documentos** | abas | **Prescrever medicamentos** (busca na farmácia municipal), **Atestado** (texto gerado automaticamente) e **Solicitação de exames** (catálogo do SUS). |
-| **5. Finalização** | botão verde | Define o **desfecho** (Alta / Retorno agendado / Encaminhamento / Observação) e **assina** → o prontuário fica bloqueado para edição e o cidadão sai da fila. Botões de impressão: **resumo do atendimento** e **encaminhamento**. |
+| **4. Prescrição e documentos** | abas | **Prescrever medicamentos** (busca na farmácia municipal), **Atestado** (texto gerado) e **Requisição de exames** (catálogo do SUS). Cada documento tem botão **Imprimir** (abre a folha A4 e chama a impressão) e **PDF** (baixa o arquivo). |
+| **5. Finalização** | botão verde | Define o **desfecho** (Alta / Retorno / Encaminhamento / Observação) e **assina** → o prontuário fica bloqueado e o cidadão sai da fila. No encaminhamento escolhe-se o **tipo** (consulta especializada, **avaliação cirúrgica**, exames especializados, urgência). Documentos de saída em A4/PDF: **resumo do atendimento** e **guia de encaminhamento**. |
+
+### Documentos gerados (A4 / PDF, layout de formulário SUS)
+
+Receituário · Atestado médico · **Requisição de Exames — SUS** · **Guia de Encaminhamento**
+(inclui a variante *para Avaliação Cirúrgica*) · Resumo do Atendimento.
+Todos com cabeçalho da UBS, identificação do cidadão (nome, CNS, nascimento, mãe),
+corpo em caixas e assinatura do profissional (nome, conselho, CBO, CNS).
 
 ### Além dos 5 passos
 
