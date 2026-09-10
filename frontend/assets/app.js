@@ -525,13 +525,16 @@ function docPresc(at, editavel) {
       const row = el(`<div style="border-bottom:1px solid var(--border);padding:8px 0">
         <b>${esc(p.medicamento)}</b> — ${esc(p.posologia)} ${p.quantidade ? "· " + esc(p.quantidade) : ""} ${p.uso_continuo ? "· <span class='badge'>uso contínuo</span>" : ""}</div>`);
       if (editavel) { const x = el('<button class="btn small danger" style="margin-left:8px">remover</button>');
-        x.onclick = async () => { await api(`/atendimentos/${at.id}/prescricoes/${p.id}`, { method: "DELETE" }); at.prescricoes = at.prescricoes.filter((y) => y.id !== p.id); pinta(); };
+        x.onclick = async () => { await api(`/atendimentos/${at.id}/prescricoes/${p.id}`, { method: "DELETE" }); at.prescricoes = at.prescricoes.filter((y) => y.id !== p.id); docPresc(at, editavel); };
         row.appendChild(x); }
       lista.appendChild(row);
     });
+    const imp = $("#presc-imp");
+    if (imp) { imp.innerHTML = ""; if ((at.prescricoes || []).length) imp.appendChild(botoesDoc(at.id, "receita", "Imprimir receita")); }
   };
   pinta(); b.appendChild(lista);
-  if ((at.prescricoes || []).length) b.appendChild(el('<div style="margin-top:10px"></div>')).appendChild(botoesDoc(at.id, "receita", "Imprimir receita"));
+  b.appendChild(el('<div id="presc-imp" style="margin-top:10px"></div>'));
+  if ((at.prescricoes || []).length) $("#presc-imp").appendChild(botoesDoc(at.id, "receita", "Imprimir receita"));
   if (!editavel) return;
   const form = el(`<div class="grid3" style="margin-top:12px">
     <div class="full" id="med-ac"></div>
@@ -551,8 +554,7 @@ function docPresc(at, editavel) {
       uso_continuo: $("#p_cont").value === "true" };
     if (!body.medicamento || !body.posologia) return toast("Informe medicamento e posologia", true);
     try { const novo = await api(`/atendimentos/${at.id}/prescricoes`, { method: "POST", body: JSON.stringify(body) });
-      at.prescricoes.push(novo); pinta();
-      ["#p_med", "#p_pos", "#p_qtd", "#p_via", "#p_dur"].forEach((s) => ($(s).value = ""));
+      at.prescricoes.push(novo); docPresc(at, editavel);
       toast("Adicionado à receita");
     } catch (e) { toast(e.message, true); }
   };
