@@ -20,7 +20,9 @@ from ..schemas import (
     SolicitacaoExameIn,
     SolicitacaoExameOut,
 )
-from ..security import exigir_perfis
+from ..impressao import render as render_doc
+from ..models import Usuario as _U
+from ..security import exigir_perfis, usuario_atual
 
 router = APIRouter(prefix="/api/atendimentos", tags=["documentos (Passo 4)"])
 _CLINICO = exigir_perfis("MEDICO", "ENFERMEIRO")
@@ -132,3 +134,16 @@ def remover_solicitacao(aid: str, sid: str, usuario: Usuario = Depends(_CLINICO)
         raise HTTPException(404, "Solicitação não encontrada")
     db.delete(s)
     db.commit()
+
+
+# ─────────── Impressão (receita | atestado | exames) ───────────
+@router.get("/{aid}/documento/{tipo}")
+def documento_impressao(aid: str, tipo: str, _: _U = Depends(usuario_atual),
+                        db: Session = Depends(get_db)):
+    at = db.get(Atendimento, aid)
+    if not at:
+        raise HTTPException(404, "Atendimento não encontrado")
+    try:
+        return {"html": render_doc(tipo, at)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))

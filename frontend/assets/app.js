@@ -72,6 +72,16 @@ function formModal({ title, fields, values = {}, onSubmit, submitLabel = "Salvar
   openModal(title, f);
 }
 
+// abre o documento (receita/atestado/exames) numa aba nova e manda imprimir
+async function imprimir(atId, tipo) {
+  try {
+    const { html } = await api(`/atendimentos/${atId}/documento/${tipo}`);
+    const w = window.open("", "_blank");
+    if (!w) return toast("Permita pop-ups para imprimir", true);
+    w.document.open(); w.document.write(html); w.document.close();
+  } catch (e) { toast(e.message, true); }
+}
+
 // autocomplete de catálogo → chama cb({label,value,...})
 function autocomplete(endpoint, placeholder, onPick) {
   const wrap = el(`<div class="autocomplete"><input placeholder="${placeholder}" /></div>`);
@@ -425,6 +435,11 @@ function docPresc(at, editavel) {
     });
   };
   pinta(); b.appendChild(lista);
+  if ((at.prescricoes || []).length) {
+    const pr = el('<button class="btn sec small" style="margin-top:10px">🖨️ Imprimir receita</button>');
+    pr.onclick = () => imprimir(at.id, "receita");
+    b.appendChild(pr);
+  }
   if (!editavel) return;
   const form = el(`<div class="grid3" style="margin-top:12px">
     <div class="full" id="med-ac"></div>
@@ -455,6 +470,11 @@ function docAtest(at, editavel) {
   const b = $("#doc-body"); b.innerHTML = "";
   (at.atestados || []).forEach((a) => b.appendChild(el(`<div class="doc-preview" style="margin-bottom:10px">${esc(a.texto)}</div>`)));
   if (!(at.atestados || []).length) b.appendChild(el('<p class="muted">Nenhum atestado emitido.</p>'));
+  if ((at.atestados || []).length) {
+    const pr = el('<button class="btn sec small">🖨️ Imprimir atestado</button>');
+    pr.onclick = () => imprimir(at.id, "atestado");
+    b.appendChild(pr);
+  }
   if (!editavel) return;
   const form = el(`<div class="grid3" style="margin-top:12px">
     <div><label class="fld">Tipo</label><select id="a_tipo"><option value="COMPARECIMENTO">Comparecimento</option><option value="AFASTAMENTO">Afastamento</option></select></div>
@@ -478,6 +498,11 @@ function docExame(at, editavel) {
   (at.solicitacoes_exame || []).forEach((s) => b.appendChild(el(
     `<div class="doc-preview" style="margin-bottom:10px"><b>${s.prioridade}</b>\n${esc(s.exames)}${s.indicacao_clinica ? "\n\nIndicação: " + esc(s.indicacao_clinica) : ""}</div>`)));
   if (!(at.solicitacoes_exame || []).length) b.appendChild(el('<p class="muted">Nenhuma solicitação.</p>'));
+  if ((at.solicitacoes_exame || []).length) {
+    const pr = el('<button class="btn sec small">🖨️ Imprimir solicitação</button>');
+    pr.onclick = () => imprimir(at.id, "exames");
+    b.appendChild(pr);
+  }
   if (!editavel) return;
   const form = el(`<div style="margin-top:12px">
     <div id="ex-ac"></div>

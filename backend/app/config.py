@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     auto_seed: bool = True
 
+    # cabeçalho dos documentos impressos
+    ubs_nome: str = "Unidade Básica de Saúde"
+    ubs_linha2: str = "Secretaria Municipal de Saúde"
+    ubs_endereco: str = "Rua da Saúde, s/n - Centro | Tel. (27) 3000-0000"
+
     @field_validator("database_url", mode="before")
     @classmethod
     def _normaliza_url(cls, v: str) -> str:
