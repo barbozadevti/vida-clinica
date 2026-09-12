@@ -19,9 +19,9 @@ class Settings(BaseSettings):
     auto_seed: bool = True
 
     # cabeçalho dos documentos impressos
-    ubs_nome: str = "Unidade Básica de Saúde"
-    ubs_linha2: str = "Secretaria Municipal de Saúde"
-    ubs_endereco: str = "Rua da Saúde, s/n - Centro | Tel. (27) 3000-0000"
+    ubs_nome: str = "Vida+ Clínica"
+    ubs_linha2: str = "Clínica Médica Multidisciplinar"
+    ubs_endereco: str = "Rua da Saúde, 100 - Centro | Tel. (27) 3000-0000"
 
     @field_validator("database_url", mode="before")
     @classmethod

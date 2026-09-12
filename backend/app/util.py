@@ -36,6 +36,9 @@ def cidadao_dict(c) -> dict:
         "nome_mae": c.nome_mae,
         "telefone": c.telefone,
         "endereco": c.endereco,
+        "convenio_id": c.convenio_id,
+        "numero_carteirinha": c.numero_carteirinha,
+        "convenio": {"id": c.convenio.id, "nome": c.convenio.nome} if c.convenio else None,
         "criado_em": c.criado_em,
         "idade": idade(c.data_nascimento),
     }

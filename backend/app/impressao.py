@@ -206,3 +206,49 @@ def render_pdf(tipo: str, at: Atendimento) -> bytes:
     if res.err:
         raise ValueError("Falha ao gerar o PDF")
     return out.getvalue()
+
+
+# ─────────────────────────────────────────────────────────────
+# Recibo de pagamento (Financeiro) — não depende de Atendimento
+def _valor_fmt(v: float) -> str:
+    return f"R$ {v:,.2f}".replace(",", "§").replace(".", ",").replace("§", ".")
+
+
+def render_recibo(c, autoprint: bool = True) -> str:
+    cid = c.cidadao
+    forma = c.forma_pagamento.replace("_", " ").title()
+    convenio = f" — {_e(c.convenio.nome)}" if c.convenio else ""
+    corpo = f"""{_ident_simples(cid)}
+    <table class="box"><tr>
+      <td style="width:34%"><span class="lbl">Valor recebido</span><span class="val"><b>{_valor_fmt(c.valor)}</b></span></td>
+      <td style="width:33%"><span class="lbl">Forma de pagamento</span><span class="val">{_e(forma)}{convenio}</span></td>
+      <td><span class="lbl">Situação</span><span class="val">{_e(c.status)}</span></td>
+    </tr>
+    <tr><td colspan="3"><span class="lbl">Referente a</span><span class="val">{_e(c.descricao)}</span></td></tr>
+    </table>"""
+    ap = ("<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>"
+          if autoprint else "")
+    return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+    <title>Recibo de Pagamento</title><style>{_CSS}</style></head><body>
+    {_cabecalho()}<h2 class="doc">Recibo de Pagamento</h2>{corpo}
+    <div class="data">{_e(_hoje_cidade())}</div>
+    <div class="assinatura"><div class="linha"></div><b>{_e(settings.ubs_nome)}</b></div>
+    {ap}</body></html>"""
+
+
+def _ident_simples(cid) -> str:
+    return f"""<table class="box"><tr>
+      <td><span class="lbl">Recebemos de</span><span class="val">{_e(cid.nome_social or cid.nome_completo)}</span></td>
+      <td style="width:35%"><span class="lbl">CPF</span><span class="val">{_e(cid.cpf or "—")}</span></td>
+    </tr></table>"""
+
+
+def render_recibo_pdf(c) -> bytes:
+    from xhtml2pdf import pisa
+
+    html = render_recibo(c, autoprint=False)
+    out = io.BytesIO()
+    res = pisa.CreatePDF(html, dest=out, encoding="utf-8")
+    if res.err:
+        raise ValueError("Falha ao gerar o PDF")
+    return out.getvalue()

@@ -6,6 +6,7 @@ from sqlalchemy import select, text
 from . import catalogos_seed as cat
 from .database import Base, SessionLocal, engine
 from .models import (
+    Agendamento,
     Alergia,
     Atendimento,
     CatalogoCID,
@@ -13,6 +14,9 @@ from .models import (
     CatalogoExame,
     CatalogoMedicamento,
     Cidadao,
+    Cobranca,
+    Convenio,
+    ItemEstoque,
     Medicao,
     MedicamentoEmUso,
     Usuario,
@@ -35,9 +39,44 @@ def _seed_catalogos(db) -> None:
     db.commit()
 
 
+def _seed_convenios(db) -> dict[str, Convenio]:
+    if db.scalar(select(Convenio).limit(1)):
+        return {c.nome: c for c in db.scalars(select(Convenio))}
+    convenios = [
+        Convenio(nome="Unimed Regional", registro_ans="123456"),
+        Convenio(nome="Bradesco Saúde", registro_ans="234567"),
+        Convenio(nome="SulAmérica Saúde", registro_ans="345678"),
+    ]
+    db.add_all(convenios)
+    db.commit()
+    return {c.nome: c for c in convenios}
+
+
+def _seed_estoque(db) -> None:
+    if db.scalar(select(ItemEstoque).limit(1)):
+        return
+    db.add_all([
+        ItemEstoque(nome="Seringa descartável 5ml", categoria="MATERIAL", unidade="un",
+                   quantidade=120, quantidade_minima=30),
+        ItemEstoque(nome="Álcool 70% 1L", categoria="INSUMO", unidade="frasco",
+                   quantidade=25, quantidade_minima=10),
+        ItemEstoque(nome="Luva de procedimento (par)", categoria="MATERIAL", unidade="par",
+                   quantidade=200, quantidade_minima=50),
+        ItemEstoque(nome="Paracetamol 500mg", categoria="MEDICAMENTO", unidade="comprimido",
+                   quantidade=8, quantidade_minima=20),
+        ItemEstoque(nome="Máscara cirúrgica", categoria="MATERIAL", unidade="un",
+                   quantidade=15, quantidade_minima=100),
+        ItemEstoque(nome="Gaze estéril (pacote)", categoria="INSUMO", unidade="pacote",
+                   quantidade=40, quantidade_minima=15),
+    ])
+    db.commit()
+
+
 def _seed_demo(db) -> None:
     if db.scalar(select(Usuario).limit(1)):
         return
+
+    convenios = _seed_convenios(db)
 
     admin = Usuario(nome="Administrador", email="admin@ubs.local",
                     senha_hash=hash_senha("123456"), perfil="ADMIN")
@@ -60,6 +99,7 @@ def _seed_demo(db) -> None:
         cns="700100200300400", data_nascimento=date(1966, 3, 14), sexo="M",
         nome_mae="Maria Ferreira", telefone="(27) 99999-1010",
         endereco="Rua das Palmeiras, 45 - Centro",
+        convenio_id=convenios["Unimed Regional"].id, numero_carteirinha="0123456789012345",
     )
     db.add(joao)
     db.flush()
@@ -93,6 +133,7 @@ def _seed_demo(db) -> None:
         cns="700500600700800", data_nascimento=date(2019, 7, 2), sexo="M",
         nome_mae="Fernanda Souza", telefone="(27) 98888-2020",
         endereco="Av. Beira Rio, 1200 - São Pedro",
+        convenio_id=convenios["Bradesco Saúde"].id, numero_carteirinha="9988776655443322",
     )
     db.add(lucas)
     db.flush()
@@ -122,6 +163,7 @@ def _seed_demo(db) -> None:
         assinado=True, assinado_em=agora - timedelta(days=90) + timedelta(minutes=18),
     )
     db.add(hist)
+    db.flush()
 
     # Fila de hoje (Passo 1)
     db.add_all([
@@ -135,6 +177,42 @@ def _seed_demo(db) -> None:
                     tipo="CONSULTA", motivo="Pré-natal - 1ª consulta",
                     classificacao_risco="AZUL"),
     ])
+
+    # Agenda (marcações futuras, Passo "Agenda")
+    hoje = date.today()
+    db.add_all([
+        Agendamento(cidadao_id=joao.id, profissional_id=med.id, criado_por_id=recep.id,
+                   data=hoje, hora="14:30", tipo="RETORNO", status="CONFIRMADO",
+                   observacao="Retorno hipertensão"),
+        Agendamento(cidadao_id=lucas.id, profissional_id=enf.id, criado_por_id=recep.id,
+                   data=hoje, hora="15:00", tipo="CONSULTA", status="AGENDADO",
+                   observacao="Puericultura"),
+        Agendamento(cidadao_id=ana.id, profissional_id=med.id, criado_por_id=recep.id,
+                   data=hoje + timedelta(days=1), hora="09:00", tipo="PRE_NATAL",
+                   status="AGENDADO", observacao="Pré-natal - 2ª consulta"),
+        Agendamento(cidadao_id=joao.id, profissional_id=med.id, criado_por_id=recep.id,
+                   data=hoje + timedelta(days=2), hora="10:30", tipo="RETORNO",
+                   status="AGENDADO", observacao="Retorno com exames"),
+    ])
+
+    # Financeiro (cobranças de exemplo)
+    db.add_all([
+        Cobranca(cidadao_id=joao.id, atendimento_id=hist.id, criado_por_id=recep.id,
+                convenio_id=convenios["Unimed Regional"].id,
+                descricao="Consulta — clínico geral", valor=180.00,
+                forma_pagamento="CONVENIO", status="PAGO",
+                pago_em=agora - timedelta(days=90)),
+        Cobranca(cidadao_id=ana.id, criado_por_id=recep.id,
+                descricao="Consulta — pré-natal (particular)", valor=150.00,
+                forma_pagamento="PIX", status="PENDENTE"),
+        Cobranca(cidadao_id=lucas.id, criado_por_id=recep.id,
+                convenio_id=convenios["Bradesco Saúde"].id,
+                descricao="Consulta — pediatria", valor=220.00,
+                forma_pagamento="CONVENIO", status="PAGO", pago_em=agora),
+        Cobranca(cidadao_id=joao.id, criado_por_id=recep.id,
+                descricao="Curativo — procedimento ambulatorial", valor=60.00,
+                forma_pagamento="CARTAO_DEBITO", status="PAGO", pago_em=agora),
+    ])
     db.commit()
     print("[bootstrap] usuários e dados de exemplo criados (senha: 123456)")
 
@@ -146,6 +224,8 @@ _MIGRACOES = [
     "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhido_em TIMESTAMPTZ",
     "ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS tipo VARCHAR(28) DEFAULT 'CONSULTA_ESPECIALIZADA'",
     "ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS cid VARCHAR(10)",
+    "ALTER TABLE cidadaos ADD COLUMN IF NOT EXISTS convenio_id UUID REFERENCES convenios(id)",
+    "ALTER TABLE cidadaos ADD COLUMN IF NOT EXISTS numero_carteirinha VARCHAR(40)",
 ]
 
 
@@ -163,4 +243,5 @@ def inicializar() -> None:
     _migrar()
     with SessionLocal() as db:
         _seed_catalogos(db)
+        _seed_estoque(db)
         _seed_demo(db)

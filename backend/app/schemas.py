@@ -70,6 +70,8 @@ class CidadaoBase(BaseModel):
     nome_mae: str | None = None
     telefone: str | None = None
     endereco: str | None = None
+    convenio_id: uuid.UUID | None = None
+    numero_carteirinha: str | None = None
 
 
 class CidadaoCreate(CidadaoBase):
@@ -86,12 +88,20 @@ class CidadaoUpdate(BaseModel):
     nome_mae: str | None = None
     telefone: str | None = None
     endereco: str | None = None
+    convenio_id: uuid.UUID | None = None
+    numero_carteirinha: str | None = None
+
+
+class ConvenioResumo(ORM):
+    id: uuid.UUID
+    nome: str
 
 
 class CidadaoOut(CidadaoBase, ORM):
     id: uuid.UUID
     criado_em: datetime
     idade: int | None = None
+    convenio: ConvenioResumo | None = None
 
 
 # ─────────── Alergias / Medicamentos em uso / Medições ───────────
@@ -351,6 +361,9 @@ class PainelOut(BaseModel):
     finalizados_hoje: int
     cidadaos: int
     retornos_7dias: int
+    agendamentos_hoje: int = 0
+    estoque_baixo: int = 0
+    faturamento_hoje: float = 0
     producao_hoje: list[dict] = []  # [{profissional, total}]
 
 
@@ -367,3 +380,101 @@ class ProducaoOut(BaseModel):
     por_desfecho: list[dict]
     por_cid: list[dict]
     por_risco: list[dict]
+
+
+# ─────────── Convênios ───────────
+class ConvenioIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=150)
+    registro_ans: str | None = None
+    telefone: str | None = None
+    ativo: bool = True
+
+
+class ConvenioOut(ConvenioIn, ORM):
+    id: uuid.UUID
+    criado_em: datetime
+
+
+# ─────────── Agenda ───────────
+class AgendamentoIn(BaseModel):
+    cidadao_id: uuid.UUID
+    profissional_id: uuid.UUID
+    data: date
+    hora: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    duracao_min: int = 30
+    tipo: str = "CONSULTA"
+    observacao: str | None = None
+
+
+class AgendamentoOut(ORM):
+    id: uuid.UUID
+    data: date
+    hora: str
+    duracao_min: int
+    tipo: str
+    status: str
+    observacao: str | None = None
+    atendimento_id: uuid.UUID | None = None
+    criado_em: datetime
+    cidadao: CidadaoResumo | None = None
+    profissional: UsuarioResumo | None = None
+
+
+# ─────────── Financeiro ───────────
+class CobrancaIn(BaseModel):
+    cidadao_id: uuid.UUID
+    atendimento_id: uuid.UUID | None = None
+    descricao: str = Field(min_length=1, max_length=200)
+    valor: float = Field(gt=0)
+    forma_pagamento: str = "DINHEIRO"
+    convenio_id: uuid.UUID | None = None
+
+
+class CobrancaOut(ORM):
+    id: uuid.UUID
+    descricao: str
+    valor: float
+    forma_pagamento: str
+    status: str
+    criado_em: datetime
+    pago_em: datetime | None = None
+    cidadao: CidadaoResumo | None = None
+    convenio: ConvenioResumo | None = None
+
+
+class FinanceiroResumoOut(BaseModel):
+    periodo_de: date
+    periodo_ate: date
+    total_faturado: float
+    total_pago: float
+    total_pendente: float
+    por_forma: list[dict]
+
+
+# ─────────── Estoque ───────────
+class ItemEstoqueIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=150)
+    categoria: str = "MATERIAL"
+    unidade: str = "un"
+    quantidade_minima: float = 0
+    ativo: bool = True
+
+
+class ItemEstoqueOut(ItemEstoqueIn, ORM):
+    id: uuid.UUID
+    quantidade: float
+    criado_em: datetime
+
+
+class MovimentoEstoqueIn(BaseModel):
+    tipo: str = Field(pattern="^(ENTRADA|SAIDA|AJUSTE)$")
+    quantidade: float = Field(gt=0)
+    motivo: str | None = None
+
+
+class MovimentoEstoqueOut(ORM):
+    id: uuid.UUID
+    tipo: str
+    quantidade: float
+    motivo: str | None = None
+    criado_em: datetime

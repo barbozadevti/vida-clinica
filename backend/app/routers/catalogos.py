@@ -6,12 +6,15 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import (
+    Agendamento,
     Atendimento,
     CatalogoCID,
     CatalogoCIAP,
     CatalogoExame,
     CatalogoMedicamento,
     Cidadao,
+    Cobranca,
+    ItemEstoque,
     Usuario,
 )
 from ..schemas import (
@@ -78,6 +81,23 @@ def painel(_: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
         .group_by(Atendimento.profissional_id)
     ).all()
     nomes = {u.id: u.nome for u in db.scalars(select(Usuario))}
+
+    agendamentos_hoje = db.scalar(
+        select(func.count(Agendamento.id)).where(
+            Agendamento.data == hoje, Agendamento.status.notin_(["CANCELADO"])
+        )
+    ) or 0
+    estoque_baixo = db.scalar(
+        select(func.count(ItemEstoque.id)).where(
+            ItemEstoque.ativo == True, ItemEstoque.quantidade <= ItemEstoque.quantidade_minima  # noqa: E712
+        )
+    ) or 0
+    faturamento_hoje = db.scalar(
+        select(func.coalesce(func.sum(Cobranca.valor), 0)).where(
+            Cobranca.status != "CANCELADO", func.date(Cobranca.criado_em) == hoje
+        )
+    ) or 0
+
     return PainelOut(
         aguardando=cnt(Atendimento.status == "AGUARDANDO"),
         sem_classificacao=cnt(Atendimento.status == "AGUARDANDO",
@@ -91,6 +111,9 @@ def painel(_: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
         retornos_7dias=cnt(Atendimento.desfecho == "RETORNO_AGENDADO",
                            Atendimento.retorno_data >= hoje,
                            Atendimento.retorno_data <= hoje + timedelta(days=7)),
+        agendamentos_hoje=agendamentos_hoje,
+        estoque_baixo=estoque_baixo,
+        faturamento_hoje=float(faturamento_hoje),
         producao_hoje=[{"profissional": nomes.get(pid, "—"), "total": n}
                        for pid, n in prod],
     )

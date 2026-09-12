@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title e-SUS UBS  (feche esta janela para PARAR)
+title Vida+ Clinica  (feche esta janela para PARAR)
 cd /d "%~dp0"
 
 echo ============================================================
-echo   e-SUS UBS  -  Prontuario / Atendimento
+echo   Vida+ Clinica  -  Sistema de Gestao Clinica
 echo ============================================================
 echo.
 echo [1/3] Iniciando o banco de dados PostgreSQL...

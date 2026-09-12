@@ -1,35 +1,53 @@
-# e-SUS UBS — Prontuário / Atendimento (APS)
+# 💠 Vida+ Clínica — Sistema de Gestão Clínica
 
-Sistema de **atendimento médico na Atenção Primária**, seguindo o fluxo padrão
-da consulta (fila → folha de rosto → SOAP → documentos → finalização).
+Sistema completo de gestão para clínicas e consultórios: **agenda**, **recepção/fila**,
+**prontuário eletrônico** com fluxo clínico SOAP, **prescrição/atestado/exames em PDF**,
+**financeiro** (particular e convênios) e **estoque** — com login e perfis de acesso
+desde o primeiro dia.
 
-**Stack:** FastAPI + PostgreSQL (SQLAlchemy 2.0) · frontend HTML/CSS/JS sem build ·
-autenticação JWT com perfis (MÉDICO, ENFERMEIRO, RECEPÇÃO, ADMIN).
+**Stack:** FastAPI (Python) + PostgreSQL (SQLAlchemy 2.0) · frontend HTML/CSS/JS puro
+(sem framework, sem build) · autenticação JWT + bcrypt · geração de PDF com xhtml2pdf ·
+perfis **MÉDICO, ENFERMEIRO, RECEPÇÃO, ADMIN**, cada um vendo só o que precisa ver.
 
-## O fluxo do atendimento
+> Projeto pessoal full-stack — modelagem de dados, API REST documentada (Swagger),
+> regras de negócio de uma clínica real (agenda, convênios, financeiro, estoque,
+> prontuário) e front-end funcional do zero. O fluxo de atendimento (fila → folha de
+> rosto → SOAP → documentos → finalização) é inspirado no e-SUS PEC, usado nas UBS
+> brasileiras, generalizado aqui para o contexto de uma clínica/consultório privado.
 
-| Passo | Tela | O que faz |
-|---|---|---|
-| **1. Lista de atendimento** | *Atendimento do dia* | Fila de cidadãos aguardando (ordenada por classificação de risco). A recepção adiciona à fila; a **enfermagem faz o acolhimento** (sinais vitais + classificação de risco de Manchester); o profissional clica **Atender** → status muda para *Em atendimento* e abre o prontuário. Os sinais vitais do acolhimento já vêm preenchidos no bloco O do SOAP. |
-| **2. Folha de rosto** | topo do prontuário | **Alergias em vermelho**, medicamentos em uso, consultas anteriores e **gráficos de evolução** (pressão arterial, peso, IMC, glicemia). |
-| **3. Registro clínico (SOAP)** | 4 blocos coloridos | **S** subjetivo (queixa) · **O** objetivo (sinais vitais estruturados: PA, peso, altura, temperatura, FC, SatO₂, glicemia + exame físico) · **A** avaliação (diagnóstico + busca de **CID-10 / CIAP-2**) · **P** plano/conduta. |
-| **4. Prescrição e documentos** | abas | **Prescrever medicamentos** (busca na farmácia municipal), **Atestado** (texto gerado) e **Requisição de exames** (catálogo do SUS). Cada documento tem botão **Imprimir** (abre a folha A4 e chama a impressão) e **PDF** (baixa o arquivo). |
-| **5. Finalização** | botão verde | Define o **desfecho** (Alta / Retorno / Encaminhamento / Observação) e **assina** → o prontuário fica bloqueado e o cidadão sai da fila. No encaminhamento escolhe-se o **tipo** (consulta especializada, **avaliação cirúrgica**, exames especializados, urgência). Documentos de saída em A4/PDF: **resumo do atendimento** e **guia de encaminhamento**. |
+## Funcionalidades
 
-### Documentos gerados (A4 / PDF, layout de formulário SUS)
+| Módulo | O que faz |
+|---|---|
+| **Agenda** | Marcação de consultas por profissional, data e horário; confirmação, falta e cancelamento; "paciente chegou" envia direto para a fila do dia. |
+| **Atendimento do dia (fila)** | Fila ordenada por classificação de risco (Manchester); acolhimento da enfermagem com sinais vitais; o profissional clica **Atender** e abre o prontuário com os vitais já pré-preenchidos. |
+| **Prontuário — folha de rosto** | Alergias em destaque, medicamentos em uso, histórico de consultas e **gráficos de evolução** (PA, peso, IMC, glicemia). |
+| **Prontuário — SOAP** | Registro clínico em 4 blocos (Subjetivo/Objetivo/Avaliação/Plano) com sinais vitais estruturados e busca de diagnóstico por **CID-10 / CIAP-2**. |
+| **Documentos clínicos** | Receituário, atestado (texto gerado automaticamente), requisição de exames e guia de encaminhamento — **inclusive para avaliação cirúrgica** — todos em **PDF real**, além de impressão direta A4. |
+| **Financeiro** | Lançamento de cobranças (dinheiro, PIX, cartão débito/crédito, convênio, boleto), baixa de pagamento, **recibo em PDF**, resumo por período e por forma de pagamento. |
+| **Convênios** | Cadastro de convênios/planos de saúde vinculados ao paciente (carteirinha, registro ANS). |
+| **Estoque** | Itens de medicamentos/materiais/insumos com quantidade mínima, entradas/saídas/ajustes com histórico e **alerta visual de estoque baixo**. |
+| **Cidadãos/Pacientes** | Cadastro completo, ficha com alergias, medicamentos em uso e linha do tempo de atendimentos. |
+| **Retornos** | Lista de retornos agendados; recepção recoloca o paciente na fila com um clique. |
+| **Relatórios** | Produção por profissional, desfecho, risco e CID/CIAP mais frequentes, com exportação CSV. |
+| **Painel** | Visão geral do dia: agendamentos, fila, faturamento, estoque baixo e produção por profissional. |
+| **Usuários** | Cadastro/edição de usuários e perfis pelo ADMIN. |
 
-Receituário · Atestado médico · **Requisição de Exames — SUS** · **Guia de Encaminhamento**
-(inclui a variante *para Avaliação Cirúrgica*) · Resumo do Atendimento.
-Todos com cabeçalho da UBS, identificação do cidadão (nome, CNS, nascimento, mãe),
-corpo em caixas e assinatura do profissional (nome, conselho, CBO, CNS).
+### O fluxo de atendimento (prontuário)
 
-### Além dos 5 passos
+1. **Fila do dia** — recepção adiciona o paciente; enfermagem faz o **acolhimento**
+   (sinais vitais + risco); o profissional clica **Atender**.
+2. **Folha de rosto** — alergias, medicamentos em uso, histórico e gráficos de evolução.
+3. **SOAP** — Subjetivo, Objetivo (vitais + exame físico), Avaliação (CID-10/CIAP-2), Plano.
+4. **Documentos** — prescrição, atestado, requisição de exames (impressão + PDF).
+5. **Finalização** — desfecho (alta / retorno / encaminhamento / observação) e assinatura;
+   o prontuário é bloqueado e o paciente sai da fila.
 
-- **Retornos agendados** — aba com a lista de retornos previstos; a recepção coloca o cidadão de volta na fila com um clique.
-- **Linha do tempo do cidadão** — na ficha, todos os atendimentos anteriores; clique para ver o SOAP completo (somente leitura).
-- **Relatório de produção** — por profissional, desfecho, classificação de risco e CID/CIAP mais frequentes, com **exportação CSV** (para envio/consolidação).
-- **Painel** — aguardando, sem acolhimento, em atendimento, finalizados hoje, retornos da semana e produção de cada profissional no dia.
-- **Reabrir atendimento** — ADMIN pode reabrir um atendimento finalizado (registra o motivo no prontuário).
+### Documentos em PDF (layout de formulário, cabeçalho da clínica)
+
+Receituário · Atestado médico · Requisição de Exames · Guia de Encaminhamento
+(consulta especializada, avaliação cirúrgica, exames especializados ou urgência) ·
+Resumo do Atendimento · **Recibo de Pagamento**.
 
 ## Rodar no PC
 
@@ -47,7 +65,8 @@ uvicorn app.main:app --port 8010 --reload
 ```
 
 - App: <http://127.0.0.1:8010>  ·  API (Swagger): `/docs`
-- O banco `esus` se popula sozinho no primeiro start (usuários + catálogos + exemplos).
+- O banco `esus` se popula sozinho no primeiro start (usuários, catálogos, convênios,
+  estoque, agenda e exemplos de cobranças).
 - `scripts\reset_db.ps1` recria tudo do zero.  `scripts\pg.ps1 psql` abre o console SQL.
 
 ## Usuários de teste (senha `123456`)
@@ -65,18 +84,18 @@ uvicorn app.main:app --port 8010 --reload
 esus/
 ├── backend/app/
 │   ├── main.py            # app FastAPI + serve o frontend
-│   ├── config.py          # .env: DATABASE_URL, JWT_SECRET
+│   ├── config.py          # .env: DATABASE_URL, JWT_SECRET, dados da clínica
 │   ├── security.py        # bcrypt + JWT + guardas de perfil
-│   ├── models.py          # tabelas SQLAlchemy
-│   ├── schemas.py
-│   ├── bootstrap.py       # create_all + migração leve + seed
+│   ├── models.py          # tabelas SQLAlchemy (prontuário, agenda, financeiro, estoque…)
+│   ├── schemas.py         # contratos Pydantic da API
+│   ├── bootstrap.py       # create_all + migração leve + seed de demonstração
 │   ├── catalogos_seed.py  # listas de CID-10, CIAP-2, medicamentos, exames
-│   ├── impressao.py       # HTML A4 dos documentos
-│   └── routers/           # auth, usuarios, cidadaos, fila, atendimentos,
-│                          # documentos, relatorios, catalogos
-├── frontend/              # index.html + assets (app.js, styles.css)
+│   ├── impressao.py       # HTML A4 + PDF dos documentos (xhtml2pdf)
+│   └── routers/           # auth, usuarios, cidadaos, fila, atendimentos, documentos,
+│                          # relatorios, catalogos, agenda, convenios, financeiro, estoque
+├── frontend/              # index.html + assets (app.js, styles.css) — SPA sem build
 ├── scripts/               # pg.ps1, reset_db.ps1
-├── Dockerfile + render.yaml   # deploy na nuvem (Render)
+├── Dockerfile + render.yaml   # deploy na nuvem (Render), opcional
 └── ABRIR e-SUS.bat
 ```
 
@@ -88,6 +107,8 @@ esus/
 
 ## Notas
 
-- Sem HTTPS/deploy local — uso interno. Trocar `JWT_SECRET` no `.env` antes de expor.
-- A assinatura é um registro de responsabilidade (profissional + data/hora), não
-  certificado digital ICP-Brasil.
+- Sem HTTPS/deploy local — uso interno/demonstração. Trocar `JWT_SECRET` no `.env`
+  antes de expor publicamente.
+- A assinatura do atendimento é um registro de responsabilidade (profissional + data/hora),
+  não um certificado digital ICP-Brasil.
+- Dados de pacientes, convênios e financeiro nesta demonstração são fictícios.

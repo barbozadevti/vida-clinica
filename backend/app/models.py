@@ -34,6 +34,18 @@ class Usuario(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+# ─────────────────────────── Convênios ───────────────────────────
+class Convenio(Base):
+    __tablename__ = "convenios"
+
+    id: Mapped[uuid.UUID] = _pk()
+    nome: Mapped[str] = mapped_column(String(150), unique=True)
+    registro_ans: Mapped[str | None] = mapped_column(String(30))
+    telefone: Mapped[str | None] = mapped_column(String(20))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 # ─────────────────────────── Cidadão (paciente) ───────────────────────────
 class Cidadao(Base):
     __tablename__ = "cidadaos"
@@ -48,7 +60,11 @@ class Cidadao(Base):
     nome_mae: Mapped[str | None] = mapped_column(String(150))
     telefone: Mapped[str | None] = mapped_column(String(20))
     endereco: Mapped[str | None] = mapped_column(String(255))
+    convenio_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("convenios.id"))
+    numero_carteirinha: Mapped[str | None] = mapped_column(String(40))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    convenio: Mapped["Convenio | None"] = relationship(lazy="joined")
 
     @property
     def idade(self) -> int | None:
@@ -285,3 +301,84 @@ class CatalogoExame(Base):
     id: Mapped[uuid.UUID] = _pk()
     nome: Mapped[str] = mapped_column(String(150))
     sinonimia: Mapped[str | None] = mapped_column(String(150))
+
+
+# ─────────────────────────── Agenda ───────────────────────────
+class Agendamento(Base):
+    """Agenda de consultas — marcação prévia, independente da fila do dia (Passo 1)."""
+
+    __tablename__ = "agendamentos"
+
+    id: Mapped[uuid.UUID] = _pk()
+    cidadao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cidadaos.id"))
+    profissional_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+    criado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+    atendimento_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("atendimentos.id", ondelete="SET NULL")
+    )
+
+    data: Mapped[date] = mapped_column(Date)
+    hora: Mapped[str] = mapped_column(String(5))  # "HH:MM"
+    duracao_min: Mapped[int] = mapped_column(Integer, default=30)
+    tipo: Mapped[str] = mapped_column(String(30), default="CONSULTA")
+    status: Mapped[str] = mapped_column(String(14), default="AGENDADO")
+    # AGENDADO | CONFIRMADO | ATENDIDO | FALTOU | CANCELADO
+    observacao: Mapped[str | None] = mapped_column(String(255))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    cidadao: Mapped["Cidadao"] = relationship(lazy="joined")
+    profissional: Mapped["Usuario"] = relationship(foreign_keys=[profissional_id], lazy="joined")
+
+
+# ─────────────────────────── Financeiro ───────────────────────────
+class Cobranca(Base):
+    """Cobrança/recebimento — particular, cartão, PIX ou convênio."""
+
+    __tablename__ = "cobrancas"
+
+    id: Mapped[uuid.UUID] = _pk()
+    cidadao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cidadaos.id"))
+    atendimento_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("atendimentos.id", ondelete="SET NULL")
+    )
+    convenio_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("convenios.id"))
+    criado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+
+    descricao: Mapped[str] = mapped_column(String(200))
+    valor: Mapped[float] = mapped_column(Float)
+    forma_pagamento: Mapped[str] = mapped_column(String(16), default="DINHEIRO")
+    # DINHEIRO | PIX | CARTAO_DEBITO | CARTAO_CREDITO | CONVENIO | BOLETO
+    status: Mapped[str] = mapped_column(String(12), default="PENDENTE")  # PENDENTE|PAGO|CANCELADO
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    pago_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    cidadao: Mapped["Cidadao"] = relationship(lazy="joined")
+    convenio: Mapped["Convenio | None"] = relationship(lazy="joined")
+
+
+# ─────────────────────────── Estoque ───────────────────────────
+class ItemEstoque(Base):
+    __tablename__ = "itens_estoque"
+
+    id: Mapped[uuid.UUID] = _pk()
+    nome: Mapped[str] = mapped_column(String(150))
+    categoria: Mapped[str] = mapped_column(String(20), default="MATERIAL")  # MEDICAMENTO|MATERIAL|INSUMO
+    unidade: Mapped[str] = mapped_column(String(20), default="un")
+    quantidade: Mapped[float] = mapped_column(Float, default=0)
+    quantidade_minima: Mapped[float] = mapped_column(Float, default=0)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class MovimentoEstoque(Base):
+    __tablename__ = "movimentos_estoque"
+
+    id: Mapped[uuid.UUID] = _pk()
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("itens_estoque.id", ondelete="CASCADE"))
+    tipo: Mapped[str] = mapped_column(String(10))  # ENTRADA|SAIDA|AJUSTE
+    quantidade: Mapped[float] = mapped_column(Float)
+    motivo: Mapped[str | None] = mapped_column(String(200))
+    criado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    item: Mapped["ItemEstoque"] = relationship()

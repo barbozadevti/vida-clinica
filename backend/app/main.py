@@ -9,21 +9,26 @@ from sqlalchemy import text
 from .bootstrap import inicializar
 from .database import engine
 from .routers import (
+    agenda,
     atendimentos,
     auth,
     catalogos,
     cidadaos,
+    convenios,
     documentos,
+    estoque,
     fila,
+    financeiro,
     relatorios,
     usuarios,
 )
 
 app = FastAPI(
-    title="e-SUS UBS — Prontuário / Atendimento",
-    description="Fluxo padrão do atendimento na APS: fila, folha de rosto, "
-    "registro SOAP, prescrição/atestado/exames e finalização com assinatura.",
-    version="1.0.0",
+    title="Vida+ Clínica — Sistema de Gestão Clínica",
+    description="Sistema completo de gestão para clínicas e consultórios: agenda, "
+    "recepção/fila, prontuário eletrônico com fluxo SOAP, prescrição/atestado/exames, "
+    "financeiro (convênios e pagamentos), estoque e relatórios.",
+    version="2.0.0",
 )
 
 
@@ -48,7 +53,8 @@ async def _sem_cache(request, call_next):
     return resp
 
 
-for r in (auth, usuarios, cidadaos, fila, atendimentos, documentos, relatorios, catalogos):
+for r in (auth, usuarios, cidadaos, fila, atendimentos, documentos, relatorios,
+          catalogos, agenda, convenios, financeiro, estoque):
     app.include_router(r.router)
 
 
