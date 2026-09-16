@@ -252,3 +252,57 @@ def render_recibo_pdf(c) -> bytes:
     if res.err:
         raise ValueError("Falha ao gerar o PDF")
     return out.getvalue()
+
+
+# ─────────────────────────────────────────────────────────────
+# Relatório de produção (Relatórios) — não depende de Atendimento
+def _tabela_relatorio(titulo: str, linhas: list[dict], colunas: list[tuple]) -> str:
+    """colunas: lista de (chave, rótulo) — a última coluna vira <b>."""
+    if not linhas:
+        return _caixa(titulo, '<p class="small">Sem dados no período.</p>')
+    cab = "".join(f"<td><b>{_e(l)}</b></td>" for _, l in colunas)
+    corpo = "".join(
+        "<tr>" + "".join(
+            f"<td>{_e(r.get(k, '—'))}</td>" if i < len(colunas) - 1
+            else f"<td><b>{_e(r.get(k, '—'))}</b></td>"
+            for i, (k, _) in enumerate(colunas)
+        ) + "</tr>"
+        for r in linhas
+    )
+    tabela = f'<table class="box"><tr>{cab}</tr>{corpo}</table>'
+    return f'<div style="margin-top:8px"><span class="lbl">{_e(titulo)}</span></div>{tabela}'
+
+
+def render_producao(dados: dict, autoprint: bool = True) -> str:
+    periodo = f"{dados['periodo_de'].strftime('%d/%m/%Y')} a {dados['periodo_ate'].strftime('%d/%m/%Y')}"
+    corpo = f"""<table class="box"><tr>
+        <td><span class="lbl">Período</span><span class="val">{_e(periodo)}</span></td>
+        <td><span class="lbl">Atendimentos finalizados</span><span class="val"><b>{dados['total']}</b></span></td>
+      </tr></table>"""
+    corpo += _tabela_relatorio("Por profissional", dados["por_profissional"],
+                               [("nome", "Profissional"), ("total", "Total")])
+    corpo += _tabela_relatorio("Por desfecho",
+                               [{"nome": r["nome"].replace("_", " "), "total": r["total"]} for r in dados["por_desfecho"]],
+                               [("nome", "Desfecho"), ("total", "Total")])
+    corpo += _tabela_relatorio("Por classificação de risco", dados["por_risco"],
+                               [("nome", "Risco"), ("total", "Total")])
+    corpo += _tabela_relatorio("CID/CIAP mais frequentes", dados["por_cid"],
+                               [("codigo", "Código"), ("descricao", "Descrição"), ("total", "Total")])
+    ap = ("<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>"
+          if autoprint else "")
+    return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+    <title>Relatório de Produção</title><style>{_CSS}</style></head><body>
+    {_cabecalho()}<h2 class="doc">Relatório de Produção</h2>{corpo}
+    <div class="data">{_e(_hoje_cidade())}</div>
+    {ap}</body></html>"""
+
+
+def render_producao_pdf(dados: dict) -> bytes:
+    from xhtml2pdf import pisa
+
+    html = render_producao(dados, autoprint=False)
+    out = io.BytesIO()
+    res = pisa.CreatePDF(html, dest=out, encoding="utf-8")
+    if res.err:
+        raise ValueError("Falha ao gerar o PDF")
+    return out.getvalue()

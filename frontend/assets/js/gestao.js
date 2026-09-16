@@ -33,6 +33,7 @@ views.relatorios = async () => {
       <label class="fld">De <input type="date" id="r_de" value="${mes}"></label>
       <label class="fld">Até <input type="date" id="r_ate" value="${hoje}"></label>
       <button class="btn" id="r_go">Gerar</button>
+      <button class="btn sec" id="r_pdf">Baixar PDF</button>
       <button class="btn sec" id="r_csv">Baixar CSV</button>
     </div></div>
     <div id="r_out"></div>`;
@@ -55,6 +56,17 @@ views.relatorios = async () => {
     const blob = await r.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = `producao_${de}_${ate}.csv`; a.click();
+  };
+  $("#r_pdf").onclick = async () => {
+    const de = $("#r_de").value, ate = $("#r_ate").value;
+    try {
+      const r = await fetch(`/api/relatorios/producao.pdf?de=${de}&ate=${ate}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = `producao_${de}_${ate}.pdf`; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch (e) { toast(e.message, true); }
   };
   gerar();
 };

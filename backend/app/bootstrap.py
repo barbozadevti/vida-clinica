@@ -19,6 +19,7 @@ from .models import (
     ItemEstoque,
     Medicao,
     MedicamentoEmUso,
+    ProblemaAtendimento,
     Usuario,
 )
 from .security import hash_senha
@@ -164,6 +165,44 @@ def _seed_demo(db) -> None:
     )
     db.add(hist)
     db.flush()
+
+    # Mais dois atendimentos finalizados recentes (para o Relatório de produção
+    # já mostrar dados com o período padrão "mês atual")
+    hist2 = Atendimento(
+        cidadao_id=lucas.id, profissional_id=enf.id, criado_por_id=recep.id,
+        status="FINALIZADO", tipo="CONSULTA", motivo="Tosse e febre",
+        classificacao_risco="AMARELO",
+        criado_em=agora - timedelta(days=2), inicio_atendimento=agora - timedelta(days=2),
+        fim_atendimento=agora - timedelta(days=2) + timedelta(minutes=12),
+        subjetivo="Tosse produtiva e febre há 2 dias, sem outros sintomas.",
+        objetivo="BEG, ativo, reativo. T 37,8°C. Ausculta pulmonar com poucos ruídos.",
+        avaliacao="Infecção de vias aéreas superiores (J06.9).",
+        plano="Sintomáticos, hidratação, retorno se piora.",
+        desfecho="ALTA", assinado=True, assinado_em=agora - timedelta(days=2) + timedelta(minutes=12),
+    )
+    hist3 = Atendimento(
+        cidadao_id=ana.id, profissional_id=med.id, criado_por_id=recep.id,
+        status="FINALIZADO", tipo="CONSULTA", motivo="Pré-natal",
+        classificacao_risco="AZUL",
+        criado_em=agora - timedelta(days=5), inicio_atendimento=agora - timedelta(days=5),
+        fim_atendimento=agora - timedelta(days=5) + timedelta(minutes=25),
+        subjetivo="Gestante, 1ª consulta de pré-natal, sem queixas.",
+        objetivo="BEG. PA 110x70 mmHg. Altura uterina compatível com IG.",
+        avaliacao="Gestação confirmada, 1º trimestre (Z34.0).",
+        plano="Solicitados exames de rotina do pré-natal. Retorno em 30 dias.",
+        desfecho="RETORNO_AGENDADO", retorno_data=(date.today() + timedelta(days=25)),
+        assinado=True, assinado_em=agora - timedelta(days=5) + timedelta(minutes=25),
+    )
+    db.add_all([hist2, hist3])
+    db.flush()
+    db.add_all([
+        ProblemaAtendimento(atendimento_id=hist2.id, sistema="CID10", codigo="J06.9",
+                            descricao="Infecção aguda das vias aéreas superiores"),
+        ProblemaAtendimento(atendimento_id=hist3.id, sistema="CID10", codigo="Z34.0",
+                            descricao="Supervisão de gravidez normal, primeiro trimestre"),
+        ProblemaAtendimento(atendimento_id=hist.id, sistema="CID10", codigo="I10",
+                            descricao="Hipertensão essencial (primária)"),
+    ])
 
     # Fila de hoje (Passo 1)
     db.add_all([

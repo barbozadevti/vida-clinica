@@ -1,12 +1,13 @@
 import io
 from datetime import date, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...database import get_db
+from ...impressao import render_producao_pdf
 from ...models import Atendimento, ProblemaAtendimento, Usuario
 from ...schemas import AtendimentoResumo, ProducaoOut
 from ...security import exigir_perfis, usuario_atual
@@ -22,12 +23,7 @@ def _intervalo(de: str | None, ate: str | None):
     return d0, d1, datetime.combine(d0, time.min), datetime.combine(d1 + timedelta(days=1), time.min)
 
 
-@router.get("/producao", response_model=ProducaoOut)
-def producao(
-    de: str | None = Query(default=None), ate: str | None = Query(default=None),
-    profissional_id: str | None = None,
-    _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
-):
+def _producao_dados(de: str | None, ate: str | None, profissional_id: str | None, db: Session) -> dict:
     d0, d1, ini, fim = _intervalo(de, ate)
     base = select(Atendimento).where(
         Atendimento.status == "FINALIZADO",
@@ -59,11 +55,36 @@ def producao(
         por_cid = [{"codigo": r[0], "descricao": r[1], "total": r[2]} for r in rows]
 
     ordena = lambda d: [{"nome": k, "total": v} for k, v in sorted(d.items(), key=lambda x: -x[1])]
-    return ProducaoOut(
-        periodo_de=d0, periodo_ate=d1, total=len(ats),
-        por_profissional=ordena(por_prof), por_desfecho=ordena(por_des),
-        por_risco=ordena(por_risco), por_cid=por_cid,
-    )
+    return {
+        "periodo_de": d0, "periodo_ate": d1, "total": len(ats),
+        "por_profissional": ordena(por_prof), "por_desfecho": ordena(por_des),
+        "por_risco": ordena(por_risco), "por_cid": por_cid,
+    }
+
+
+@router.get("/producao", response_model=ProducaoOut)
+def producao(
+    de: str | None = Query(default=None), ate: str | None = Query(default=None),
+    profissional_id: str | None = None,
+    _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
+):
+    return ProducaoOut(**_producao_dados(de, ate, profissional_id, db))
+
+
+@router.get("/producao.pdf")
+def producao_pdf(
+    de: str | None = Query(default=None), ate: str | None = Query(default=None),
+    profissional_id: str | None = None,
+    _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
+):
+    dados = _producao_dados(de, ate, profissional_id, db)
+    try:
+        pdf = render_producao_pdf(dados)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    nome = f"producao_{dados['periodo_de']}_{dados['periodo_ate']}.pdf"
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})
 
 
 @router.get("/producao.csv")
