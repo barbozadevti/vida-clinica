@@ -34,7 +34,7 @@ views.relatorios = async () => {
       <label class="fld">Até <input type="date" id="r_ate" value="${hoje}"></label>
       <button class="btn" id="r_go">Gerar</button>
       <button class="btn sec" id="r_pdf">Baixar PDF</button>
-      <button class="btn sec" id="r_csv">Baixar CSV</button>
+      <button class="btn sec" id="r_xlsx">Baixar Excel</button>
     </div></div>
     <div id="r_out"></div>`;
   const tabela = (titulo, linhas, cols) => `<div class="panel"><h3>${titulo}</h3>
@@ -50,12 +50,16 @@ views.relatorios = async () => {
       ${tabela("CID/CIAP mais frequentes", d.por_cid, (r) => `<td>${esc(r.codigo)}</td><td>${esc(r.descricao)}</td><td><b>${r.total}</b></td>`)}`;
   };
   $("#r_go").onclick = gerar;
-  $("#r_csv").onclick = async () => {
+  $("#r_xlsx").onclick = async () => {
     const de = $("#r_de").value, ate = $("#r_ate").value;
-    const r = await fetch(`/api/relatorios/producao.csv?de=${de}&ate=${ate}`, { headers: { Authorization: `Bearer ${token}` } });
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = `producao_${de}_${ate}.csv`; a.click();
+    try {
+      const r = await fetch(`/api/relatorios/producao.xlsx?de=${de}&ate=${ate}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = `producao_${de}_${ate}.xlsx`; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch (e) { toast(e.message, true); }
   };
   $("#r_pdf").onclick = async () => {
     const de = $("#r_de").value, ate = $("#r_ate").value;

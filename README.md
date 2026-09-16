@@ -48,7 +48,7 @@ documento completo está publicado à parte. Resumo:
 | **Estoque** | Itens de medicamentos/materiais/insumos com quantidade mínima, entradas/saídas/ajustes com histórico e **alerta visual de estoque baixo**. |
 | **Pacientes** | Cadastro completo, ficha com alergias, medicamentos em uso e linha do tempo de atendimentos. |
 | **Retornos** | Lista de retornos agendados; recepção recoloca o paciente na fila com um clique. |
-| **Relatórios** | Produção por profissional, desfecho, risco e CID/CIAP mais frequentes, com exportação em **PDF** e **CSV**. |
+| **Relatórios** | Produção por profissional, desfecho, risco e CID/CIAP mais frequentes, com exportação em **PDF** e **Excel** (abas por dimensão + gráficos, estilo painel de BI). |
 | **Painel** | Visão geral do dia: agendamentos, fila, faturamento, estoque baixo e produção por profissional. |
 | **Usuários** | Cadastro/edição de usuários e perfis pelo ADMIN. |
 

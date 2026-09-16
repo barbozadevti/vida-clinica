@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ...database import get_db
 from ...impressao import render_producao_pdf
 from ...models import Atendimento, ProblemaAtendimento, Usuario
+from ...planilha import gerar_producao_xlsx
 from ...schemas import AtendimentoResumo, ProducaoOut
 from ...security import exigir_perfis, usuario_atual
 
@@ -85,6 +86,22 @@ def producao_pdf(
     nome = f"producao_{dados['periodo_de']}_{dados['periodo_ate']}.pdf"
     return Response(pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+@router.get("/producao.xlsx")
+def producao_xlsx(
+    de: str | None = Query(default=None), ate: str | None = Query(default=None),
+    profissional_id: str | None = None,
+    _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
+):
+    dados = _producao_dados(de, ate, profissional_id, db)
+    xlsx = gerar_producao_xlsx(dados)
+    nome = f"producao_{dados['periodo_de']}_{dados['periodo_ate']}.xlsx"
+    return Response(
+        xlsx,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{nome}"'},
+    )
 
 
 @router.get("/producao.csv")
