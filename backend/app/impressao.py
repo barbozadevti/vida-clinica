@@ -53,11 +53,17 @@ def _hoje_cidade() -> str:
     return f"{d.day} de {_MESES[d.month - 1]} de {d.year}"
 
 
-def _cabecalho() -> str:
+def _cabecalho(unidade=None) -> str:
+    """Multiclínica: quando o atendimento tem uma Unidade vinculada, o
+    cabeçalho impresso usa o nome/endereço dela em vez do dado global da
+    configuração — cada unidade emite documento com seu próprio timbre."""
+    nome = unidade.nome if unidade else settings.ubs_nome
+    endereco = unidade.endereco if unidade and unidade.endereco else settings.ubs_endereco
+    linha2 = settings.ubs_linha2 if not unidade else (unidade.telefone or settings.ubs_linha2)
     return f"""<table class="cab"><tr>
       <td style="width:14mm;font-size:20pt;text-align:center">✚</td>
-      <td><span class="tit">{_e(settings.ubs_nome)}</span><br>
-      <span class="sub">{_e(settings.ubs_linha2)} — {_e(settings.ubs_endereco)}</span></td>
+      <td><span class="tit">{_e(nome)}</span><br>
+      <span class="sub">{_e(linha2)} — {_e(endereco)}</span></td>
     </tr></table><hr>"""
 
 
@@ -101,7 +107,7 @@ def _pagina(titulo, corpo, at, autoprint=True) -> str:
           if autoprint else "")
     return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
     <title>{_e(titulo)}</title><style>{_CSS}</style></head><body>
-    {_cabecalho()}<h2 class="doc">{_e(titulo)}</h2>{corpo}{_rodape(at)}{ap}</body></html>"""
+    {_cabecalho(at.unidade)}<h2 class="doc">{_e(titulo)}</h2>{corpo}{_rodape(at)}{ap}</body></html>"""
 
 
 def _caixa(titulo, conteudo, cls="") -> str:

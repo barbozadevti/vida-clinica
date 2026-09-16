@@ -164,6 +164,7 @@ class Atendimento(Base):
     cidadao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cidadaos.id"))
     profissional_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id"))
     criado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+    unidade_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("unidades.id"))
 
     status: Mapped[str] = mapped_column(String(16), default="AGUARDANDO")
     # AGUARDANDO | EM_ATENDIMENTO | FINALIZADO | CANCELADO
@@ -201,6 +202,7 @@ class Atendimento(Base):
     acolhido_por: Mapped["Usuario | None"] = relationship(
         foreign_keys=[acolhido_por_id], lazy="joined"
     )
+    unidade: Mapped["Unidade | None"] = relationship(lazy="joined")
     problemas: Mapped[list["ProblemaAtendimento"]] = relationship(
         back_populates="atendimento", cascade="all, delete-orphan"
     )
@@ -330,6 +332,7 @@ class Agendamento(Base):
     cidadao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cidadaos.id"))
     profissional_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
     criado_por_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+    unidade_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("unidades.id"))
     atendimento_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("atendimentos.id", ondelete="SET NULL")
     )
@@ -345,6 +348,7 @@ class Agendamento(Base):
 
     cidadao: Mapped["Cidadao"] = relationship(lazy="joined")
     profissional: Mapped["Usuario"] = relationship(foreign_keys=[profissional_id], lazy="joined")
+    unidade: Mapped["Unidade | None"] = relationship(lazy="joined")
 
 
 # ─────────────────────────── Financeiro ───────────────────────────

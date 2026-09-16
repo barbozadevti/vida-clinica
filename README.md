@@ -52,7 +52,7 @@ documento completo está publicado à parte. Resumo:
 | **Relatórios** | Produção por profissional, desfecho, risco e CID/CIAP mais frequentes, com exportação em **PDF** e **Excel** (abas por dimensão + gráficos, estilo painel de BI). |
 | **Painel** | Visão geral do dia: agendamentos, fila, faturamento, estoque baixo e produção por profissional. |
 | **Usuários** | Cadastro/edição de usuários e perfis pelo ADMIN, com unidade de lotação. |
-| **Unidades (multiclínica)** | Cadastro de unidades/filiais; cada usuário pertence a uma unidade. |
+| **Unidades (multiclínica)** | Cadastro de unidades/filiais; cada usuário pertence a uma unidade e só vê fila, agenda, relatórios e painel da própria unidade — o ADMIN pode ver tudo ou filtrar por unidade. |
 | **Portal do paciente** | Página própria (`/portal`) onde o paciente vê seus agendamentos e baixa seus documentos, sem precisar de senha. |
 
 ### Ondas 4 e 5 — próximo incremento validado
@@ -65,7 +65,7 @@ Fatia mínima de cada ideia, para validar a hipótese sem construir a integraç�
 | **Portal do paciente** | Página `/portal`: login por CPF + nascimento, vê agendamentos futuros e baixa seus próprios documentos em PDF | Autenticação simples demais para produção real — trocar por SMS/e-mail com código de uso único |
 | **Teleconsulta** | Agendamento tipo "Teleconsulta" gera uma sala de vídeo (Jitsi Meet, gratuito) | Sem gravação, sem sala de espera virtual, sem integração com prontuário durante a chamada |
 | **Guia TISS** | PDF simplificado com os campos de uma guia de consulta (beneficiário, prestador, procedimento, CID) | Não é o XML eletrônico que a ANS exige para envio às operadoras — é o documento, não a integração de faturamento |
-| **Multiclínica** | Cadastro de unidades/filiais; cada usuário pertence a uma | Agenda, fila e relatórios ainda são globais — falta filtrar por unidade |
+| **Multiclínica** | Cadastro de unidades/filiais; fila, agenda, relatórios e painel filtrados por unidade (ADMIN vê tudo ou filtra); documentos impressos usam o timbre da unidade do atendimento | Estoque e faturamento do painel ainda são globais — esses módulos não têm `unidade_id` |
 
 ### O fluxo de atendimento (prontuário)
 
@@ -106,12 +106,14 @@ uvicorn app.main:app --port 8010 --reload
 
 ## Usuários de teste (senha `123456`)
 
-| E-mail | Perfil |
-|---|---|
-| `medico@ubs.local` | MÉDICO |
-| `enfermagem@ubs.local` | ENFERMEIRO |
-| `recepcao@ubs.local` | RECEPÇÃO |
-| `admin@ubs.local` | ADMIN |
+| E-mail | Perfil | Unidade |
+|---|---|---|
+| `medico@ubs.local` | MÉDICO (Dr. Victor Dalvi) | Centro |
+| `enfermagem@ubs.local` | ENFERMEIRO | Centro |
+| `recepcao@ubs.local` | RECEPÇÃO | Centro |
+| `medico.sul@ubs.local` | MÉDICO (Dra. Camila Duarte) | Sul |
+| `recepcao.sul@ubs.local` | RECEPÇÃO | Sul |
+| `admin@ubs.local` | ADMIN | todas |
 
 Portal do paciente (<http://127.0.0.1:8010/portal>) — sem senha, entra com CPF + data de
 nascimento. Exemplo: CPF `11122233344`, nascimento `14/03/1966` (João Batista Ferreira).

@@ -22,16 +22,20 @@ _VITAIS = {
 
 
 @router.get("", response_model=list[AtendimentoResumo])
-def listar_fila(_: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
-    """Lista de atendimento do dia: quem está AGUARDANDO ou EM_ATENDIMENTO."""
+def listar_fila(usuario: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+    """Lista de atendimento do dia: quem está AGUARDANDO ou EM_ATENDIMENTO.
+
+    Multiclínica: quem não é ADMIN e tem unidade definida só vê a fila da
+    própria unidade (atendimentos sem unidade definida — legado — continuam
+    visíveis a todos, pra não sumir dado antigo)."""
     inicio_dia = datetime.combine(datetime.now(timezone.utc).date(), time.min)
-    itens = db.scalars(
-        select(Atendimento)
-        .where(
-            Atendimento.status.in_(["AGUARDANDO", "EM_ATENDIMENTO"]),
-            Atendimento.criado_em >= inicio_dia,
-        )
-    ).all()
+    stmt = select(Atendimento).where(
+        Atendimento.status.in_(["AGUARDANDO", "EM_ATENDIMENTO"]),
+        Atendimento.criado_em >= inicio_dia,
+    )
+    if usuario.perfil != "ADMIN" and usuario.unidade_id:
+        stmt = stmt.where(Atendimento.unidade_id.in_([usuario.unidade_id, None]))
+    itens = db.scalars(stmt).all()
     itens.sort(
         key=lambda a: (
             0 if a.status == "EM_ATENDIMENTO" else 1,
@@ -61,6 +65,7 @@ def adicionar(
     at = Atendimento(
         cidadao_id=dados.cidadao_id,
         criado_por_id=usuario.id,
+        unidade_id=usuario.unidade_id,
         status="AGUARDANDO",
         tipo=dados.tipo,
         motivo=dados.motivo,

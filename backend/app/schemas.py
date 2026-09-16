@@ -269,6 +269,7 @@ class AtendimentoResumo(ORM):
     acolhido_em: datetime | None = None
     cidadao: CidadaoResumo | None = None
     profissional: UsuarioResumo | None = None
+    unidade: UnidadeResumo | None = None
 
 
 class PrescricaoIn(BaseModel):
@@ -348,6 +349,7 @@ class AtendimentoOut(ORM):
     assinado_em: datetime | None = None
     cidadao: CidadaoResumo | None = None
     profissional: UsuarioResumo | None = None
+    unidade: UnidadeResumo | None = None
     problemas: list[ProblemaOut] = []
     prescricoes: list[PrescricaoOut] = []
     atestados: list[AtestadoOut] = []
@@ -440,6 +442,7 @@ class AgendamentoOut(ORM):
     criado_em: datetime
     cidadao: CidadaoResumo | None = None
     profissional: UsuarioResumo | None = None
+    unidade: UnidadeResumo | None = None
 
 
 # ─────────── Financeiro ───────────

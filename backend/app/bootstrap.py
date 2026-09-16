@@ -95,6 +95,7 @@ def _seed_demo(db) -> None:
     convenios = _seed_convenios(db)
     unidades = _seed_unidades(db)
     centro = unidades["Vida+ Clínica — Unidade Centro"].id
+    sul = unidades["Vida+ Clínica — Unidade Sul"].id
 
     admin = Usuario(nome="Administrador", email="admin@ubs.local",
                     senha_hash=hash_senha("123456"), perfil="ADMIN")
@@ -104,11 +105,20 @@ def _seed_demo(db) -> None:
     enf = Usuario(nome="Enf. Paulo Lima", email="enfermagem@ubs.local",
                   senha_hash=hash_senha("123456"), perfil="ENFERMEIRO",
                   conselho="COREN 123456-ES", cbo="223505", unidade_id=centro)
-    med = Usuario(nome="Dra. Marina Alves", email="medico@ubs.local",
+    med = Usuario(nome="Dr. Victor Dalvi", email="medico@ubs.local",
                   senha_hash=hash_senha("123456"), perfil="MEDICO",
                   conselho="CRM 54321-ES", cbo="225125", cns="700000000000001",
                   unidade_id=centro)
-    db.add_all([admin, recep, enf, med])
+
+    # Equipe da Unidade Sul (demonstra o filtro multiclínica)
+    recep_sul = Usuario(nome="Renata Souza", email="recepcao.sul@ubs.local",
+                        senha_hash=hash_senha("123456"), perfil="RECEPCAO", cbo="422105",
+                        unidade_id=sul)
+    med_sul = Usuario(nome="Dra. Camila Duarte", email="medico.sul@ubs.local",
+                      senha_hash=hash_senha("123456"), perfil="MEDICO",
+                      conselho="CRM 61234-ES", cbo="225125", cns="700000000000002",
+                      unidade_id=sul)
+    db.add_all([admin, recep, enf, med, recep_sul, med_sul])
     db.flush()
 
     agora = datetime.now(timezone.utc)
@@ -168,9 +178,48 @@ def _seed_demo(db) -> None:
     db.add(ana)
     db.flush()
 
+    # Cidadão 4: idosa, controle de diabetes (Unidade Centro)
+    rosa = Cidadao(
+        nome_completo="Rosa Maria Nascimento", cpf="22233344455",
+        cns="700111222333444", data_nascimento=date(1954, 5, 9), sexo="F",
+        nome_mae="Antônia Nascimento", telefone="(27) 99666-4040",
+        endereco="Rua das Acácias, 210 - Centro",
+        convenio_id=convenios["SulAmérica Saúde"].id, numero_carteirinha="5566778899001122",
+    )
+    db.add(rosa)
+    db.flush()
+    db.add_all([
+        MedicamentoEmUso(cidadao_id=rosa.id, descricao="Metformina 850 mg",
+                         posologia="1 comprimido no almoço e no jantar", via="oral", uso_continuo=True),
+        MedicamentoEmUso(cidadao_id=rosa.id, descricao="Glibenclamida 5 mg",
+                         posologia="1 comprimido antes do café", via="oral", uso_continuo=True),
+    ])
+
+    # Cidadão 5: adulto jovem com lombalgia (Unidade Sul)
+    marcelo = Cidadao(
+        nome_completo="Marcelo Tavares Costa", cpf="33344455566",
+        cns="700222333444555", data_nascimento=date(1990, 8, 23), sexo="M",
+        nome_mae="Ivone Costa", telefone="(27) 99555-5050",
+        endereco="Av. Sul, 780 - Bairro Sul",
+    )
+    db.add(marcelo)
+    db.flush()
+
+    # Cidadão 6: criança com dermatite (Unidade Sul)
+    isabela = Cidadao(
+        nome_completo="Isabela Farias Moura", cpf="44455566677",
+        cns="700333444555666", data_nascimento=date(2021, 2, 14), sexo="F",
+        nome_mae="Patrícia Moura", telefone="(27) 99444-6060",
+        endereco="Rua das Gaivotas, 33 - Bairro Sul",
+        convenio_id=convenios["Bradesco Saúde"].id, numero_carteirinha="1122334455667788",
+    )
+    db.add(isabela)
+    db.flush()
+
     # Atendimento histórico finalizado (João)
     hist = Atendimento(
         cidadao_id=joao.id, profissional_id=med.id, criado_por_id=recep.id,
+        unidade_id=centro,
         status="FINALIZADO", tipo="RETORNO", motivo="Retorno de hipertensão",
         criado_em=agora - timedelta(days=90),
         inicio_atendimento=agora - timedelta(days=90),
@@ -189,6 +238,7 @@ def _seed_demo(db) -> None:
     # já mostrar dados com o período padrão "mês atual")
     hist2 = Atendimento(
         cidadao_id=lucas.id, profissional_id=enf.id, criado_por_id=recep.id,
+        unidade_id=centro,
         status="FINALIZADO", tipo="CONSULTA", motivo="Tosse e febre",
         classificacao_risco="AMARELO",
         criado_em=agora - timedelta(days=2), inicio_atendimento=agora - timedelta(days=2),
@@ -201,6 +251,7 @@ def _seed_demo(db) -> None:
     )
     hist3 = Atendimento(
         cidadao_id=ana.id, profissional_id=med.id, criado_por_id=recep.id,
+        unidade_id=centro,
         status="FINALIZADO", tipo="CONSULTA", motivo="Pré-natal",
         classificacao_risco="AZUL",
         criado_em=agora - timedelta(days=5), inicio_atendimento=agora - timedelta(days=5),
@@ -212,7 +263,35 @@ def _seed_demo(db) -> None:
         desfecho="RETORNO_AGENDADO", retorno_data=(date.today() + timedelta(days=25)),
         assinado=True, assinado_em=agora - timedelta(days=5) + timedelta(minutes=25),
     )
-    db.add_all([hist2, hist3])
+
+    # Atendimentos finalizados da Unidade Sul (para o relatório/painel comparar unidades)
+    hist4 = Atendimento(
+        cidadao_id=marcelo.id, profissional_id=med_sul.id, criado_por_id=recep_sul.id,
+        unidade_id=sul,
+        status="FINALIZADO", tipo="CONSULTA", motivo="Dor lombar após esforço",
+        classificacao_risco="VERDE",
+        criado_em=agora - timedelta(days=3), inicio_atendimento=agora - timedelta(days=3),
+        fim_atendimento=agora - timedelta(days=3) + timedelta(minutes=15),
+        subjetivo="Dor lombar há 3 dias após carregar peso, sem irradiação.",
+        objetivo="BEG. Mobilidade preservada. Sem sinais de alarme.",
+        avaliacao="Dorsalgia (M54.5).",
+        plano="Analgesia, repouso relativo, retorno se persistir.",
+        desfecho="ALTA", assinado=True, assinado_em=agora - timedelta(days=3) + timedelta(minutes=15),
+    )
+    hist5 = Atendimento(
+        cidadao_id=isabela.id, profissional_id=med_sul.id, criado_por_id=recep_sul.id,
+        unidade_id=sul,
+        status="FINALIZADO", tipo="CONSULTA", motivo="Lesões de pele",
+        classificacao_risco="VERDE",
+        criado_em=agora - timedelta(days=1), inicio_atendimento=agora - timedelta(days=1),
+        fim_atendimento=agora - timedelta(days=1) + timedelta(minutes=10),
+        subjetivo="Mãe refere manchas avermelhadas e coceira há 4 dias.",
+        objetivo="Lesões eritematosas em dobras, sem sinais de infecção secundária.",
+        avaliacao="Dermatite atópica (L20.9).",
+        plano="Hidratante e corticoide tópico de baixa potência. Retorno se piora.",
+        desfecho="ALTA", assinado=True, assinado_em=agora - timedelta(days=1) + timedelta(minutes=10),
+    )
+    db.add_all([hist2, hist3, hist4, hist5])
     db.flush()
     db.add_all([
         ProblemaAtendimento(atendimento_id=hist2.id, sistema="CID10", codigo="J06.9",
@@ -221,39 +300,79 @@ def _seed_demo(db) -> None:
                             descricao="Supervisão de gravidez normal, primeiro trimestre"),
         ProblemaAtendimento(atendimento_id=hist.id, sistema="CID10", codigo="I10",
                             descricao="Hipertensão essencial (primária)"),
+        ProblemaAtendimento(atendimento_id=hist4.id, sistema="CID10", codigo="M54.5",
+                            descricao="Dor lombar baixa"),
+        ProblemaAtendimento(atendimento_id=hist5.id, sistema="CID10", codigo="L20.9",
+                            descricao="Dermatite atópica não especificada"),
     ])
 
-    # Fila de hoje (Passo 1)
+    # Fila de hoje (Passo 1) — Unidade Centro
     db.add_all([
-        Atendimento(cidadao_id=joao.id, criado_por_id=recep.id, status="AGUARDANDO",
-                    tipo="RETORNO", motivo="Retorno + resultado de exames",
+        Atendimento(cidadao_id=joao.id, criado_por_id=recep.id, unidade_id=centro,
+                    status="AGUARDANDO", tipo="RETORNO", motivo="Retorno + resultado de exames",
                     classificacao_risco="VERDE"),
-        Atendimento(cidadao_id=lucas.id, criado_por_id=recep.id, status="AGUARDANDO",
-                    tipo="CONSULTA", motivo="Tosse e febre há 2 dias",
+        Atendimento(cidadao_id=lucas.id, criado_por_id=recep.id, unidade_id=centro,
+                    status="AGUARDANDO", tipo="CONSULTA", motivo="Tosse e febre há 2 dias",
                     classificacao_risco="AMARELO"),
-        Atendimento(cidadao_id=ana.id, criado_por_id=recep.id, status="AGUARDANDO",
-                    tipo="CONSULTA", motivo="Pré-natal - 1ª consulta",
+        Atendimento(cidadao_id=ana.id, criado_por_id=recep.id, unidade_id=centro,
+                    status="AGUARDANDO", tipo="CONSULTA", motivo="Pré-natal - 1ª consulta",
+                    classificacao_risco="AZUL"),
+        Atendimento(cidadao_id=rosa.id, criado_por_id=recep.id, unidade_id=centro,
+                    status="AGUARDANDO", tipo="RETORNO", motivo="Controle de diabetes",
+                    classificacao_risco="VERDE"),
+    ])
+
+    # Fila de hoje (Passo 1) — Unidade Sul
+    db.add_all([
+        Atendimento(cidadao_id=marcelo.id, criado_por_id=recep_sul.id, unidade_id=sul,
+                    status="AGUARDANDO", tipo="CONSULTA", motivo="Dor lombar não resolvida",
+                    classificacao_risco="VERDE"),
+        Atendimento(cidadao_id=isabela.id, criado_por_id=recep_sul.id, unidade_id=sul,
+                    status="AGUARDANDO", tipo="RETORNO", motivo="Reavaliação de dermatite",
                     classificacao_risco="AZUL"),
     ])
 
     # Agenda (marcações futuras, Passo "Agenda")
     hoje = date.today()
     db.add_all([
+        # Unidade Centro
         Agendamento(cidadao_id=joao.id, profissional_id=med.id, criado_por_id=recep.id,
+                   unidade_id=centro,
                    data=hoje, hora="14:30", tipo="RETORNO", status="CONFIRMADO",
                    observacao="Retorno hipertensão"),
         Agendamento(cidadao_id=lucas.id, profissional_id=enf.id, criado_por_id=recep.id,
+                   unidade_id=centro,
                    data=hoje, hora="15:00", tipo="CONSULTA", status="AGENDADO",
                    observacao="Puericultura"),
         Agendamento(cidadao_id=ana.id, profissional_id=med.id, criado_por_id=recep.id,
+                   unidade_id=centro,
                    data=hoje + timedelta(days=1), hora="09:00", tipo="PRE_NATAL",
                    status="AGENDADO", observacao="Pré-natal - 2ª consulta"),
         Agendamento(cidadao_id=joao.id, profissional_id=med.id, criado_por_id=recep.id,
+                   unidade_id=centro,
                    data=hoje + timedelta(days=2), hora="10:30", tipo="RETORNO",
                    status="AGENDADO", observacao="Retorno com exames"),
         Agendamento(cidadao_id=ana.id, profissional_id=med.id, criado_por_id=recep.id,
+                   unidade_id=centro,
                    data=hoje + timedelta(days=3), hora="16:00", tipo="TELECONSULTA",
                    status="AGENDADO", observacao="Acompanhamento pré-natal por vídeo"),
+        Agendamento(cidadao_id=rosa.id, profissional_id=med.id, criado_por_id=recep.id,
+                   unidade_id=centro,
+                   data=hoje + timedelta(days=1), hora="11:00", tipo="RETORNO",
+                   status="AGENDADO", observacao="Controle de diabetes - retorno"),
+        # Unidade Sul
+        Agendamento(cidadao_id=marcelo.id, profissional_id=med_sul.id, criado_por_id=recep_sul.id,
+                   unidade_id=sul,
+                   data=hoje, hora="13:30", tipo="RETORNO", status="CONFIRMADO",
+                   observacao="Retorno dor lombar"),
+        Agendamento(cidadao_id=isabela.id, profissional_id=med_sul.id, criado_por_id=recep_sul.id,
+                   unidade_id=sul,
+                   data=hoje + timedelta(days=1), hora="10:00", tipo="CONSULTA",
+                   status="AGENDADO", observacao="Reavaliação dermatológica"),
+        Agendamento(cidadao_id=marcelo.id, profissional_id=med_sul.id, criado_por_id=recep_sul.id,
+                   unidade_id=sul,
+                   data=hoje + timedelta(days=2), hora="14:00", tipo="TELECONSULTA",
+                   status="AGENDADO", observacao="Acompanhamento por vídeo"),
     ])
 
     # Financeiro (cobranças de exemplo)
@@ -273,6 +392,17 @@ def _seed_demo(db) -> None:
         Cobranca(cidadao_id=joao.id, criado_por_id=recep.id,
                 descricao="Curativo — procedimento ambulatorial", valor=60.00,
                 forma_pagamento="CARTAO_DEBITO", status="PAGO", pago_em=agora),
+        Cobranca(cidadao_id=rosa.id, atendimento_id=None, criado_por_id=recep.id,
+                convenio_id=convenios["SulAmérica Saúde"].id,
+                descricao="Consulta — clínico geral", valor=180.00,
+                forma_pagamento="CONVENIO", status="PENDENTE"),
+        Cobranca(cidadao_id=marcelo.id, atendimento_id=hist4.id, criado_por_id=recep_sul.id,
+                descricao="Consulta — clínico geral (particular)", valor=160.00,
+                forma_pagamento="PIX", status="PAGO", pago_em=agora - timedelta(days=3)),
+        Cobranca(cidadao_id=isabela.id, atendimento_id=hist5.id, criado_por_id=recep_sul.id,
+                convenio_id=convenios["Bradesco Saúde"].id,
+                descricao="Consulta — pediatria", valor=220.00,
+                forma_pagamento="CONVENIO", status="PAGO", pago_em=agora - timedelta(days=1)),
     ])
     db.commit()
     print("[bootstrap] usuários e dados de exemplo criados (senha: 123456)")
@@ -289,6 +419,8 @@ _MIGRACOES = [
     "ALTER TABLE cidadaos ADD COLUMN IF NOT EXISTS numero_carteirinha VARCHAR(40)",
     "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS unidade_id UUID REFERENCES unidades(id)",
     "ALTER TABLE cobrancas ADD COLUMN IF NOT EXISTS codigo_tuss VARCHAR(20)",
+    "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS unidade_id UUID REFERENCES unidades(id)",
+    "ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS unidade_id UUID REFERENCES unidades(id)",
 ]
 
 

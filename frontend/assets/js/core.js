@@ -203,9 +203,27 @@ function iniciar() {
 
 // ═════════ PAINEL ═════════
 views.painel = async () => {
-  viewEl.innerHTML = `<div class="page-head"><h1 class="title">Painel</h1></div><div id="pc"></div>`;
+  const ehAdmin = user.perfil === "ADMIN";
+  viewEl.innerHTML = `<div class="page-head"><h1 class="title">Painel</h1>
+    ${ehAdmin ? '<select id="p_unidade" style="max-width:260px"><option value="">Todas as unidades</option></select>' : ""}</div>
+    <div id="pc"></div>`;
+  const carregar = async () => {
+    const uid = ehAdmin ? $("#p_unidade").value : "";
+    await _carregarPainel(uid);
+  };
+  if (ehAdmin) {
+    try {
+      const unidades = await api("/unidades");
+      const sel = $("#p_unidade");
+      unidades.forEach((u) => sel.appendChild(el(`<option value="${u.id}">${esc(u.nome)}</option>`)));
+      sel.onchange = carregar;
+    } catch (e) { /* sem unidades cadastradas ainda */ }
+  }
+  carregar();
+};
+async function _carregarPainel(uid) {
   try {
-    const d = await api("/painel");
+    const d = await api("/painel" + (uid ? `?unidade_id=${uid}` : ""));
     const cards = [
       ["Agendamentos hoje", d.agendamentos_hoje],
       ["Aguardando", d.aguardando],
@@ -223,7 +241,7 @@ views.painel = async () => {
     ${(d.producao_hoje || []).length ? `<div class="panel"><h3>Produção de hoje</h3>
       <table><tbody>${d.producao_hoje.map((p) => `<tr><td>${esc(p.profissional)}</td><td><b>${p.total}</b> atendimento(s)</td></tr>`).join("")}</tbody></table></div>` : ""}`;
   } catch (e) { $("#pc").innerHTML = `<p class="empty">${e.message}</p>`; }
-};
+}
 
 // ═════════ CIDADÃOS ═════════
 views.cidadaos = async () => {

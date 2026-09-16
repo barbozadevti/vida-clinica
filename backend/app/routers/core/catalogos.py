@@ -70,23 +70,27 @@ def exames(q: str | None = Query(default=None), _: Usuario = Depends(usuario_atu
 
 
 @router.get("/painel", response_model=PainelOut, tags=["painel"])
-def painel(_: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+def painel(unidade_id: str | None = None, usuario: Usuario = Depends(usuario_atual),
+           db: Session = Depends(get_db)):
     ini = datetime.combine(datetime.now(timezone.utc).date(), time.min)
     hoje = date.today()
-    cnt = lambda *w: db.scalar(select(func.count(Atendimento.id)).where(*w)) or 0
+    # multiclínica: ADMIN pode filtrar (ou ver tudo); os demais só veem a própria unidade
+    unidade_efetiva = str(usuario.unidade_id) if (usuario.perfil != "ADMIN" and usuario.unidade_id) else unidade_id
+    filtro_unidade = (Atendimento.unidade_id == unidade_efetiva,) if unidade_efetiva else ()
+    cnt = lambda *w: db.scalar(select(func.count(Atendimento.id)).where(*w, *filtro_unidade)) or 0
 
-    prod = db.execute(
-        select(Atendimento.profissional_id, func.count().label("n"))
-        .where(Atendimento.status == "FINALIZADO", Atendimento.fim_atendimento >= ini)
-        .group_by(Atendimento.profissional_id)
-    ).all()
+    prod_stmt = select(Atendimento.profissional_id, func.count().label("n")).where(
+        Atendimento.status == "FINALIZADO", Atendimento.fim_atendimento >= ini, *filtro_unidade
+    ).group_by(Atendimento.profissional_id)
+    prod = db.execute(prod_stmt).all()
     nomes = {u.id: u.nome for u in db.scalars(select(Usuario))}
 
-    agendamentos_hoje = db.scalar(
-        select(func.count(Agendamento.id)).where(
-            Agendamento.data == hoje, Agendamento.status.notin_(["CANCELADO"])
-        )
-    ) or 0
+    ag_stmt = select(func.count(Agendamento.id)).where(
+        Agendamento.data == hoje, Agendamento.status.notin_(["CANCELADO"])
+    )
+    if unidade_efetiva:
+        ag_stmt = ag_stmt.where(Agendamento.unidade_id == unidade_efetiva)
+    agendamentos_hoje = db.scalar(ag_stmt) or 0
     estoque_baixo = db.scalar(
         select(func.count(ItemEstoque.id)).where(
             ItemEstoque.ativo == True, ItemEstoque.quantidade <= ItemEstoque.quantidade_minima  # noqa: E712

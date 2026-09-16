@@ -24,7 +24,16 @@ def _intervalo(de: str | None, ate: str | None):
     return d0, d1, datetime.combine(d0, time.min), datetime.combine(d1 + timedelta(days=1), time.min)
 
 
-def _producao_dados(de: str | None, ate: str | None, profissional_id: str | None, db: Session) -> dict:
+def _unidade_efetiva(usuario: Usuario, unidade_id: str | None) -> str | None:
+    """Multiclínica: quem não é ADMIN só consulta a própria unidade, mesmo que
+    tente passar outro id — o ADMIN pode filtrar por qualquer unidade ou ver tudo."""
+    if usuario.perfil != "ADMIN":
+        return str(usuario.unidade_id) if usuario.unidade_id else None
+    return unidade_id
+
+
+def _producao_dados(de: str | None, ate: str | None, profissional_id: str | None,
+                    unidade_id: str | None, db: Session) -> dict:
     d0, d1, ini, fim = _intervalo(de, ate)
     base = select(Atendimento).where(
         Atendimento.status == "FINALIZADO",
@@ -32,6 +41,8 @@ def _producao_dados(de: str | None, ate: str | None, profissional_id: str | None
     )
     if profissional_id:
         base = base.where(Atendimento.profissional_id == profissional_id)
+    if unidade_id:
+        base = base.where(Atendimento.unidade_id == unidade_id)
     ats = db.scalars(base).all()
     ids = [a.id for a in ats]
 
@@ -66,19 +77,19 @@ def _producao_dados(de: str | None, ate: str | None, profissional_id: str | None
 @router.get("/producao", response_model=ProducaoOut)
 def producao(
     de: str | None = Query(default=None), ate: str | None = Query(default=None),
-    profissional_id: str | None = None,
-    _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
+    profissional_id: str | None = None, unidade_id: str | None = None,
+    usuario: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
 ):
-    return ProducaoOut(**_producao_dados(de, ate, profissional_id, db))
+    return ProducaoOut(**_producao_dados(de, ate, profissional_id, _unidade_efetiva(usuario, unidade_id), db))
 
 
 @router.get("/producao.pdf")
 def producao_pdf(
     de: str | None = Query(default=None), ate: str | None = Query(default=None),
-    profissional_id: str | None = None,
-    _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
+    profissional_id: str | None = None, unidade_id: str | None = None,
+    usuario: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
 ):
-    dados = _producao_dados(de, ate, profissional_id, db)
+    dados = _producao_dados(de, ate, profissional_id, _unidade_efetiva(usuario, unidade_id), db)
     try:
         pdf = render_producao_pdf(dados)
     except ValueError as e:
@@ -91,10 +102,10 @@ def producao_pdf(
 @router.get("/producao.xlsx")
 def producao_xlsx(
     de: str | None = Query(default=None), ate: str | None = Query(default=None),
-    profissional_id: str | None = None,
-    _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
+    profissional_id: str | None = None, unidade_id: str | None = None,
+    usuario: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
 ):
-    dados = _producao_dados(de, ate, profissional_id, db)
+    dados = _producao_dados(de, ate, profissional_id, _unidade_efetiva(usuario, unidade_id), db)
     xlsx = gerar_producao_xlsx(dados)
     nome = f"producao_{dados['periodo_de']}_{dados['periodo_ate']}.xlsx"
     return Response(
@@ -106,16 +117,18 @@ def producao_xlsx(
 
 @router.get("/producao.csv")
 def producao_csv(
-    de: str | None = None, ate: str | None = None,
-    _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
+    de: str | None = None, ate: str | None = None, unidade_id: str | None = None,
+    usuario: Usuario = Depends(_GESTAO), db: Session = Depends(get_db),
 ):
     d0, d1, ini, fim = _intervalo(de, ate)
-    ats = db.scalars(
-        select(Atendimento).where(
-            Atendimento.status == "FINALIZADO",
-            Atendimento.fim_atendimento >= ini, Atendimento.fim_atendimento < fim,
-        ).order_by(Atendimento.fim_atendimento)
-    ).all()
+    stmt = select(Atendimento).where(
+        Atendimento.status == "FINALIZADO",
+        Atendimento.fim_atendimento >= ini, Atendimento.fim_atendimento < fim,
+    ).order_by(Atendimento.fim_atendimento)
+    unidade_efetiva = _unidade_efetiva(usuario, unidade_id)
+    if unidade_efetiva:
+        stmt = stmt.where(Atendimento.unidade_id == unidade_efetiva)
+    ats = db.scalars(stmt).all()
     buf = io.StringIO()
     buf.write("data;cidadao;profissional;tipo;risco;desfecho;cids\n")
     for a in ats:
@@ -136,13 +149,14 @@ def producao_csv(
 @router.get("/retornos", response_model=list[AtendimentoResumo])
 def retornos(
     dias: int = Query(default=14, ge=1, le=90),
-    _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db),
+    usuario: Usuario = Depends(usuario_atual), db: Session = Depends(get_db),
 ):
     hoje = date.today()
-    return db.scalars(
-        select(Atendimento).where(
-            Atendimento.desfecho == "RETORNO_AGENDADO",
-            Atendimento.retorno_data >= hoje,
-            Atendimento.retorno_data <= hoje + timedelta(days=dias),
-        ).order_by(Atendimento.retorno_data)
-    ).all()
+    stmt = select(Atendimento).where(
+        Atendimento.desfecho == "RETORNO_AGENDADO",
+        Atendimento.retorno_data >= hoje,
+        Atendimento.retorno_data <= hoje + timedelta(days=dias),
+    ).order_by(Atendimento.retorno_data)
+    if usuario.perfil != "ADMIN" and usuario.unidade_id:
+        stmt = stmt.where(Atendimento.unidade_id.in_([usuario.unidade_id, None]))
+    return db.scalars(stmt).all()

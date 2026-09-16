@@ -18,12 +18,14 @@ _STATUS = {"AGENDADO", "CONFIRMADO", "ATENDIDO", "FALTOU", "CANCELADO"}
 
 @router.get("", response_model=list[AgendamentoOut])
 def listar(data: date_cls | None = None, profissional_id: str | None = None,
-           _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+           usuario: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     stmt = select(Agendamento).order_by(Agendamento.data, Agendamento.hora)
     if data:
         stmt = stmt.where(Agendamento.data == data)
     if profissional_id:
         stmt = stmt.where(Agendamento.profissional_id == profissional_id)
+    if usuario.perfil != "ADMIN" and usuario.unidade_id:
+        stmt = stmt.where(Agendamento.unidade_id.in_([usuario.unidade_id, None]))
     return db.scalars(stmt).all()
 
 
@@ -40,7 +42,7 @@ def criar(dados: AgendamentoIn, usuario: Usuario = Depends(_RECEP), db: Session 
     ))
     if conflito:
         raise HTTPException(409, "Já existe agendamento para este profissional neste horário")
-    ag = Agendamento(**dados.model_dump(), criado_por_id=usuario.id)
+    ag = Agendamento(**dados.model_dump(), criado_por_id=usuario.id, unidade_id=usuario.unidade_id)
     db.add(ag)
     db.commit()
     db.refresh(ag)
@@ -93,7 +95,7 @@ def enviar_para_fila(aid: str, usuario: Usuario = Depends(exigir_perfis("RECEPCA
     if ja:
         raise HTTPException(409, "Cidadão já está na fila de atendimento")
     at = Atendimento(cidadao_id=ag.cidadao_id, criado_por_id=usuario.id, status="AGUARDANDO",
-                      tipo=ag.tipo, motivo=ag.observacao or "Consulta agendada")
+                      unidade_id=ag.unidade_id, tipo=ag.tipo, motivo=ag.observacao or "Consulta agendada")
     db.add(at)
     db.flush()
     ag.atendimento_id = at.id

@@ -28,20 +28,34 @@ async function baixarReciboPdf(cid) {
 views.relatorios = async () => {
   const hoje = hojeInput();
   const mes = hoje.slice(0, 8) + "01";
+  const ehAdmin = user.perfil === "ADMIN";
   viewEl.innerHTML = `<div class="page-head"><h1 class="title">Relatório de produção</h1></div>
     <div class="panel"><div class="toolbar">
       <label class="fld">De <input type="date" id="r_de" value="${mes}"></label>
       <label class="fld">Até <input type="date" id="r_ate" value="${hoje}"></label>
+      ${ehAdmin ? '<label class="fld">Unidade <select id="r_unidade"><option value="">Todas as unidades</option></select></label>' : ""}
       <button class="btn" id="r_go">Gerar</button>
       <button class="btn sec" id="r_pdf">Baixar PDF</button>
       <button class="btn sec" id="r_xlsx">Baixar Excel</button>
     </div></div>
     <div id="r_out"></div>`;
+  if (ehAdmin) {
+    try {
+      const unidades = await api("/unidades");
+      const sel = $("#r_unidade");
+      unidades.forEach((u) => sel.appendChild(el(`<option value="${u.id}">${esc(u.nome)}</option>`)));
+    } catch (e) { /* multiclínica ainda sem unidades cadastradas — mantém "Todas" */ }
+  }
+  const qs = () => {
+    const p = new URLSearchParams({ de: $("#r_de").value, ate: $("#r_ate").value });
+    const uid = ehAdmin ? $("#r_unidade").value : "";
+    if (uid) p.set("unidade_id", uid);
+    return p.toString();
+  };
   const tabela = (titulo, linhas, cols) => `<div class="panel"><h3>${titulo}</h3>
     ${linhas.length ? `<table><tbody>${linhas.map((r) => `<tr>${cols(r)}</tr>`).join("")}</tbody></table>` : '<p class="muted">Sem dados.</p>'}</div>`;
   const gerar = async () => {
-    const de = $("#r_de").value, ate = $("#r_ate").value;
-    const d = await api(`/relatorios/producao?de=${de}&ate=${ate}`);
+    const d = await api(`/relatorios/producao?${qs()}`);
     $("#r_out").innerHTML = `
       <div class="cards"><div class="card"><div class="k">Atendimentos finalizados</div><div class="v">${d.total}</div></div></div>
       ${tabela("Por profissional", d.por_profissional, (r) => `<td>${esc(r.nome)}</td><td><b>${r.total}</b></td>`)}
@@ -51,27 +65,26 @@ views.relatorios = async () => {
   };
   $("#r_go").onclick = gerar;
   $("#r_xlsx").onclick = async () => {
-    const de = $("#r_de").value, ate = $("#r_ate").value;
     try {
-      const r = await fetch(`/api/relatorios/producao.xlsx?de=${de}&ate=${ate}`, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await fetch(`/api/relatorios/producao.xlsx?${qs()}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
       const blob = await r.blob();
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = `producao_${de}_${ate}.xlsx`; a.click();
+      a.href = URL.createObjectURL(blob); a.download = `producao_${$("#r_de").value}_${$("#r_ate").value}.xlsx`; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     } catch (e) { toast(e.message, true); }
   };
   $("#r_pdf").onclick = async () => {
-    const de = $("#r_de").value, ate = $("#r_ate").value;
     try {
-      const r = await fetch(`/api/relatorios/producao.pdf?de=${de}&ate=${ate}`, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await fetch(`/api/relatorios/producao.pdf?${qs()}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
       const blob = await r.blob();
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = `producao_${de}_${ate}.pdf`; a.click();
+      a.href = URL.createObjectURL(blob); a.download = `producao_${$("#r_de").value}_${$("#r_ate").value}.pdf`; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     } catch (e) { toast(e.message, true); }
   };
+  if (ehAdmin) $("#r_unidade").onchange = gerar;
   gerar();
 };
 
