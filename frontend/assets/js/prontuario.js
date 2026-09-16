@@ -154,11 +154,23 @@ views.atendimento = async (aid) => {
         <span class="muted">${c.idade ?? "?"} anos · ${c.sexo || "-"} · nasc. ${fmtD(c.data_nascimento)} · ${stBadge(at.status)}
         ${at.assinado ? "· <b style='color:var(--ok)'>assinado ✔</b>" : ""}</span></div>
       <div class="row-actions">
-        ${at.tipo === "TELECONSULTA" ? '<button class="btn ok" id="teleconsulta">🎥 Entrar na videochamada</button>' : ""}
+        ${at.tipo === "TELECONSULTA" ? '<button class="btn ok" id="teleconsulta">🎥 Videochamada</button>' : ""}
         ${podeReabrir ? '<button class="btn sec" id="reabrir">Reabrir atendimento</button>' : ""}
         <button class="btn sec" id="voltar">← Voltar</button>
       </div>
     </div>
+    ${at.tipo === "TELECONSULTA" ? `
+    <div class="panel" id="video-panel" hidden style="position:sticky;top:8px;z-index:5;padding:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <b>🎥 Videochamada — fica aberta enquanto você preenche o prontuário abaixo</b>
+        <div class="row-actions">
+          <a href="https://meet.jit.si/VidaClinica-${aid}" target="_blank" class="btn sec small">Tela cheia (nova aba)</a>
+          <button class="btn sec small" id="fechar-video">Fechar</button>
+        </div>
+      </div>
+      <iframe id="video-iframe" style="width:100%;height:380px;border:1px solid var(--border);border-radius:8px"
+        allow="camera; microphone; fullscreen; display-capture; autoplay"></iframe>
+    </div>` : ""}
     ${at.acolhido_em ? `<div class="panel" style="background:#f0f7ff"><b>Acolhimento</b> — ${esc(at.acolhido_por ? at.acolhido_por.nome : "")} em ${fmtDT(at.acolhido_em)}${at.acolhimento ? "<br>" + esc(at.acolhimento) : ""}</div>` : ""}
     <div id="alertas"></div>
     <details class="panel" id="fr-panel" open><summary style="cursor:pointer;font-weight:600">Passo 2 — Folha de rosto</summary><div id="fr" style="margin-top:12px">carregando…</div></details>
@@ -166,7 +178,13 @@ views.atendimento = async (aid) => {
     <div class="panel"><h3>Passo 4 — Prescrição e documentos</h3><div id="docs"></div></div>
     <div class="panel" id="fim-panel"><h3>Passo 5 — Finalização</h3><div id="fim"></div></div>`;
   $("#voltar").onclick = () => setView("fila");
-  if ($("#teleconsulta")) $("#teleconsulta").onclick = () => window.open(`https://meet.jit.si/VidaClinica-${aid}`, "_blank");
+  if ($("#teleconsulta")) $("#teleconsulta").onclick = () => {
+    const painel = $("#video-panel"), frame = $("#video-iframe");
+    painel.hidden = false;
+    if (!frame.src) frame.src = `https://meet.jit.si/VidaClinica-${aid}#config.prejoinPageEnabled=false`;
+    painel.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  if ($("#fechar-video")) $("#fechar-video").onclick = () => { $("#video-panel").hidden = true; };
   if ($("#reabrir")) $("#reabrir").onclick = async () => {
     const motivo = prompt("Motivo da reabertura:");
     if (!motivo) return;
