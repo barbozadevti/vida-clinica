@@ -18,6 +18,20 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# ─────────────────────────── Unidades (multiclínica) ───────────────────────────
+class Unidade(Base):
+    """Onda 5 (Lean Inception) — suporte a mais de uma unidade/filial da clínica."""
+
+    __tablename__ = "unidades"
+
+    id: Mapped[uuid.UUID] = _pk()
+    nome: Mapped[str] = mapped_column(String(150), unique=True)
+    endereco: Mapped[str | None] = mapped_column(String(255))
+    telefone: Mapped[str | None] = mapped_column(String(20))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 # ─────────────────────────── Usuários ───────────────────────────
 class Usuario(Base):
     __tablename__ = "usuarios"
@@ -30,8 +44,11 @@ class Usuario(Base):
     cns: Mapped[str | None] = mapped_column(String(20))
     cbo: Mapped[str | None] = mapped_column(String(20))
     conselho: Mapped[str | None] = mapped_column(String(40))  # ex. CRM 12345-ES
+    unidade_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("unidades.id"))
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    unidade: Mapped["Unidade | None"] = relationship(lazy="joined")
 
 
 # ─────────────────────────── Convênios ───────────────────────────
@@ -348,12 +365,14 @@ class Cobranca(Base):
     valor: Mapped[float] = mapped_column(Float)
     forma_pagamento: Mapped[str] = mapped_column(String(16), default="DINHEIRO")
     # DINHEIRO | PIX | CARTAO_DEBITO | CARTAO_CREDITO | CONVENIO | BOLETO
+    codigo_tuss: Mapped[str | None] = mapped_column(String(20))  # procedimento, p/ guia TISS
     status: Mapped[str] = mapped_column(String(12), default="PENDENTE")  # PENDENTE|PAGO|CANCELADO
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     pago_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     cidadao: Mapped["Cidadao"] = relationship(lazy="joined")
     convenio: Mapped["Convenio | None"] = relationship(lazy="joined")
+    atendimento: Mapped["Atendimento | None"] = relationship(lazy="joined")
 
 
 # ─────────────────────────── Estoque ───────────────────────────

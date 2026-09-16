@@ -255,6 +255,64 @@ def render_recibo_pdf(c) -> bytes:
 
 
 # ─────────────────────────────────────────────────────────────
+# Guia TISS simplificada (Financeiro/Onda 5) — não depende de Atendimento.
+# Reúne os campos mínimos de uma guia de consulta TISS (padrão da ANS) para
+# validar a hipótese; não é o XML SADT/consulta que a ANS exige para envio
+# eletrônico à operadora — isso fica para uma próxima onda.
+def render_guia_tiss(c, autoprint: bool = True) -> str:
+    if not c.convenio:
+        raise ValueError("Esta cobrança não tem convênio associado")
+    cid = c.cidadao
+    at = c.atendimento
+    prof = at.profissional if at else None
+    cids = "; ".join(dict.fromkeys(f"{_e(p.codigo)} {_e(p.descricao)}" for p in at.problemas)) if at else "—"
+    nasc = cid.data_nascimento.strftime("%d/%m/%Y") if cid.data_nascimento else "—"
+    corpo = f"""<table class="box"><tr>
+        <td><span class="lbl">Operadora</span><span class="val">{_e(c.convenio.nome)}</span></td>
+        <td style="width:30%"><span class="lbl">Registro ANS</span><span class="val">{_e(c.convenio.registro_ans or "—")}</span></td>
+      </tr></table>
+      <table class="box"><tr>
+        <td colspan="2"><span class="lbl">Beneficiário</span><span class="val">{_e(cid.nome_social or cid.nome_completo)}</span></td></tr>
+      <tr>
+        <td><span class="lbl">Nº da carteirinha</span><span class="val">{_e(cid.numero_carteirinha or "—")}</span></td>
+        <td><span class="lbl">Nascimento</span><span class="val">{nasc}</span></td>
+      </tr></table>
+      <table class="box"><tr>
+        <td><span class="lbl">Profissional executante</span><span class="val">{_e(prof.nome if prof else "—")}</span></td>
+        <td style="width:30%"><span class="lbl">Conselho / CBO</span><span class="val">{_e(prof.conselho or "—") if prof else "—"}{(" / " + _e(prof.cbo)) if prof and prof.cbo else ""}</span></td>
+      </tr></table>
+      <table class="box"><tr>
+        <td style="width:25%"><span class="lbl">Código do procedimento (TUSS)</span><span class="val">{_e(c.codigo_tuss or "—")}</span></td>
+        <td><span class="lbl">Procedimento / descrição</span><span class="val">{_e(c.descricao)}</span></td>
+      </tr>
+      <tr><td colspan="2"><span class="lbl">CID relacionado</span><span class="val">{cids}</span></td></tr>
+      <tr>
+        <td><span class="lbl">Data do atendimento</span><span class="val">{_e(c.criado_em.strftime("%d/%m/%Y"))}</span></td>
+        <td><span class="lbl">Valor</span><span class="val"><b>{_valor_fmt(c.valor)}</b></span></td>
+      </tr></table>"""
+    ap = ("<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>"
+          if autoprint else "")
+    return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+    <title>Guia TISS — Simplificada</title><style>{_CSS}</style></head><body>
+    {_cabecalho()}<h2 class="doc">Guia TISS — Consulta (simplificada)</h2>{corpo}
+    <p class="small" style="margin-top:8px">Documento interno simplificado, não substitui a guia eletrônica TISS exigida
+    para faturamento junto à operadora.</p>
+    <div class="data">{_e(_hoje_cidade())}</div>
+    {ap}</body></html>"""
+
+
+def render_guia_tiss_pdf(c) -> bytes:
+    from xhtml2pdf import pisa
+
+    html = render_guia_tiss(c, autoprint=False)
+    out = io.BytesIO()
+    res = pisa.CreatePDF(html, dest=out, encoding="utf-8")
+    if res.err:
+        raise ValueError("Falha ao gerar o PDF")
+    return out.getvalue()
+
+
+# ─────────────────────────────────────────────────────────────
 # Relatório de produção (Relatórios) — não depende de Atendimento
 def _tabela_relatorio(titulo: str, linhas: list[dict], colunas: list[tuple]) -> str:
     """colunas: lista de (chave, rótulo) — a última coluna vira <b>."""

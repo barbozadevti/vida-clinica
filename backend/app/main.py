@@ -12,9 +12,11 @@ from .database import engine
 # core        -> autenticação e administração, transversal aos dois MVPs
 # prontuario  -> MVP 1, prontuário digital do atendimento
 # gestao      -> MVP 2, fechamento financeiro do dia (agenda/convênios/financeiro/estoque)
+# expansao    -> ondas 4/5, próximos MVPs (multiclínica, portal do paciente)
 from .routers.core import auth, catalogos, relatorios, usuarios
 from .routers.prontuario import atendimentos, cidadaos, documentos, fila
 from .routers.gestao import agenda, convenios, estoque, financeiro
+from .routers.expansao import portal, unidades
 
 app = FastAPI(
     title="Vida+ Clínica — Sistema de Gestão Clínica",
@@ -47,7 +49,7 @@ async def _sem_cache(request, call_next):
 
 
 for r in (auth, usuarios, cidadaos, fila, atendimentos, documentos, relatorios,
-          catalogos, agenda, convenios, financeiro, estoque):
+          catalogos, agenda, convenios, financeiro, estoque, unidades, portal):
     app.include_router(r.router)
 
 
@@ -68,3 +70,7 @@ if FRONTEND.exists():
     @app.get("/", include_in_schema=False)
     def index():
         return FileResponse(FRONTEND / "index.html")
+
+    @app.get("/portal", include_in_schema=False)
+    def portal_index():
+        return FileResponse(FRONTEND / "portal.html")

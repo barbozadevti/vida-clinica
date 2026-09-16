@@ -75,6 +75,19 @@ views.relatorios = async () => {
   gerar();
 };
 
+// Onda 4 — confirmação por WhatsApp: link "click-to-chat" (wa.me), sem custo
+// e sem precisar de conta de API — a recepção revisa e envia a mensagem.
+function linkWhatsApp(telefone, mensagem) {
+  const digitos = (telefone || "").replace(/\D/g, "");
+  if (!digitos) return null;
+  const comDDI = digitos.length <= 11 ? "55" + digitos : digitos;
+  return `https://wa.me/${comDDI}?text=${encodeURIComponent(mensagem)}`;
+}
+
+// Onda 5 — teleconsulta: sala de vídeo via Jitsi Meet (gratuito, sem conta,
+// sem chave de API) — valida a hipótese sem construir infraestrutura de vídeo própria.
+const linkTeleconsulta = (agendamentoId) => `https://meet.jit.si/VidaClinica-${agendamentoId}`;
+
 // ═════════ AGENDA ═════════
 views.agenda = async () => {
   const gerencia = ["RECEPCAO", "ADMIN"].includes(user.perfil);
@@ -100,6 +113,21 @@ views.agenda = async () => {
         const cf = el('<button class="btn small sec">Confirmar</button>');
         cf.onclick = async () => { await api(`/agenda/${a.id}/status?status=CONFIRMADO`, { method: "POST" }); carregar(); };
         acts.appendChild(cf);
+      }
+      if (gerencia && ["AGENDADO", "CONFIRMADO"].includes(a.status)) {
+        const link = linkWhatsApp(c.telefone,
+          `Olá, ${c.nome_social || c.nome_completo}! Sua consulta na Vida+ Clínica está marcada para ${fmtD(a.data)} às ${a.hora}` +
+          `${a.profissional ? " com " + a.profissional.nome : ""}. Responda para confirmar. Se precisar remarcar, é só nos avisar.`);
+        if (link) {
+          const wa = el('<button class="btn small sec">📲 WhatsApp</button>');
+          wa.onclick = () => window.open(link, "_blank");
+          acts.appendChild(wa);
+        }
+      }
+      if (a.tipo === "TELECONSULTA" && ["AGENDADO", "CONFIRMADO"].includes(a.status)) {
+        const tv = el('<button class="btn small sec">🎥 Videochamada</button>');
+        tv.onclick = () => window.open(linkTeleconsulta(a.id), "_blank");
+        acts.appendChild(tv);
       }
       if (podeChegada && ["AGENDADO", "CONFIRMADO"].includes(a.status)) {
         const ch = el('<button class="btn small">Paciente chegou</button>');
@@ -137,7 +165,7 @@ async function agendamentoForm(reload, dataPadrao) {
       { name: "profissional_id", label: "Profissional", required: true, type: "select",
         options: clinicos.map((u) => ({ value: u.id, label: `${u.nome} (${u.perfil})` })) },
       { name: "tipo", label: "Tipo", type: "select",
-        options: ["CONSULTA", "RETORNO", "PRE_NATAL", "PROCEDIMENTO", "URGENCIA"].map((v) => ({ value: v, label: v.replace(/_/g, " ") })) },
+        options: ["CONSULTA", "RETORNO", "PRE_NATAL", "PROCEDIMENTO", "URGENCIA", "TELECONSULTA"].map((v) => ({ value: v, label: v.replace(/_/g, " ") })) },
       { name: "data", label: "Data", type: "date", required: true },
       { name: "hora", label: "Hora (HH:MM)", required: true },
       { name: "duracao_min", label: "Duração (min)", type: "number", cast: "int" },
@@ -235,6 +263,10 @@ views.financeiro = async () => {
         const r2 = el('<button class="btn small sec">PDF</button>'); r2.onclick = () => baixarReciboPdf(c.id);
         acts.append(r1, r2);
       }
+      if (c.forma_pagamento === "CONVENIO" && c.convenio) {
+        const g = el('<button class="btn small sec">Guia TISS</button>'); g.onclick = () => imprimirGuiaTiss(c.id);
+        acts.appendChild(g);
+      }
       t.querySelector("tbody").appendChild(tr);
     });
     box.appendChild(t);
@@ -258,9 +290,22 @@ async function cobrancaForm(reload) {
         options: ["DINHEIRO", "PIX", "CARTAO_DEBITO", "CARTAO_CREDITO", "CONVENIO", "BOLETO"].map((v) => ({ value: v, label: v.replace(/_/g, " ") })) },
       { name: "convenio_id", label: "Convênio (se aplicável)", type: "select",
         options: [{ value: "", label: "—" }, ...convs.map((v) => ({ value: v.id, label: v.nome }))] },
+      { name: "codigo_tuss", label: "Código TUSS (para guia do convênio)" },
     ],
     onSubmit: async (d) => { await api("/financeiro/cobrancas", { method: "POST", body: JSON.stringify(d) }); toast("Cobrança lançada"); reload(); },
   });
+}
+
+// Guia TISS simplificada (Onda 5) — impressão/PDF de cobranças por convênio
+async function imprimirGuiaTiss(cid) {
+  try {
+    const r = await fetch(`${API}/financeiro/cobrancas/${cid}/guia-tiss.pdf`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (e) { toast(e.message, true); }
 }
 
 // ═════════ ESTOQUE ═════════

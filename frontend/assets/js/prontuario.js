@@ -95,7 +95,7 @@ async function filaForm(reload) {
     fields: [
       { name: "cidadao_id", label: "Paciente", required: true, type: "select", full: true,
         options: cids.map((c) => ({ value: c.id, label: `${c.nome_completo}${c.cpf ? " — " + c.cpf : ""}` })) },
-      { name: "tipo", label: "Tipo", type: "select", options: ["CONSULTA", "RETORNO", "URGENCIA", "PROCEDIMENTO"].map((v) => ({ value: v, label: v })) },
+      { name: "tipo", label: "Tipo", type: "select", options: ["CONSULTA", "RETORNO", "URGENCIA", "PROCEDIMENTO", "TELECONSULTA"].map((v) => ({ value: v, label: v })) },
       { name: "classificacao_risco", label: "Classificação de risco (opcional — a enfermagem pode fazer)", type: "select", full: true,
         options: [{ value: "", label: "— será classificado no acolhimento —" }, ...["AZUL", "VERDE", "AMARELO", "LARANJA", "VERMELHO"].map((v) => ({ value: v, label: v }))] },
       { name: "motivo", label: "Motivo / queixa", type: "textarea", full: true },
@@ -154,6 +154,7 @@ views.atendimento = async (aid) => {
         <span class="muted">${c.idade ?? "?"} anos · ${c.sexo || "-"} · nasc. ${fmtD(c.data_nascimento)} · ${stBadge(at.status)}
         ${at.assinado ? "· <b style='color:var(--ok)'>assinado ✔</b>" : ""}</span></div>
       <div class="row-actions">
+        ${at.tipo === "TELECONSULTA" ? '<button class="btn ok" id="teleconsulta">🎥 Entrar na videochamada</button>' : ""}
         ${podeReabrir ? '<button class="btn sec" id="reabrir">Reabrir atendimento</button>' : ""}
         <button class="btn sec" id="voltar">← Voltar</button>
       </div>
@@ -165,6 +166,7 @@ views.atendimento = async (aid) => {
     <div class="panel"><h3>Passo 4 — Prescrição e documentos</h3><div id="docs"></div></div>
     <div class="panel" id="fim-panel"><h3>Passo 5 — Finalização</h3><div id="fim"></div></div>`;
   $("#voltar").onclick = () => setView("fila");
+  if ($("#teleconsulta")) $("#teleconsulta").onclick = () => window.open(`https://meet.jit.si/VidaClinica-${aid}`, "_blank");
   if ($("#reabrir")) $("#reabrir").onclick = async () => {
     const motivo = prompt("Motivo da reabertura:");
     if (!motivo) return;

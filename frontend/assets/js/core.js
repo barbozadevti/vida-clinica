@@ -176,6 +176,7 @@ const MENU = [
   { v: "estoque", t: "Estoque", p: ["RECEPCAO", "ENFERMEIRO", "ADMIN"] },
   { v: "convenios", t: "Convênios", p: ["RECEPCAO", "ADMIN"] },
   { v: "relatorios", t: "Relatórios", p: ["MEDICO", "ENFERMEIRO"] },
+  { v: "unidades", t: "Unidades", p: ["ADMIN"] },
   { v: "usuarios", t: "Usuários", p: ["ADMIN"] },
 ];
 const pode = (m) => m.p === "*" || user.perfil === "ADMIN" || m.p.includes(user.perfil);
@@ -341,9 +342,10 @@ views.usuarios = async () => {
   viewEl.innerHTML = `<div class="page-head"><h1 class="title">Usuários</h1><button class="btn" id="novo">+ Novo</button></div><div class="panel" id="lista"></div>`;
   const carregar = async () => {
     const l = await api("/usuarios");
-    const t = el(`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Conselho</th><th>Ativo</th><th></th></tr></thead><tbody></tbody></table>`);
+    const t = el(`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Unidade</th><th>Conselho</th><th>Ativo</th><th></th></tr></thead><tbody></tbody></table>`);
     l.forEach((u) => {
       const tr = el(`<tr><td>${esc(u.nome)}</td><td>${esc(u.email)}</td><td><span class="badge">${u.perfil}</span></td>
+        <td>${u.unidade ? esc(u.unidade.nome) : '<span class="muted">—</span>'}</td>
         <td>${esc(u.conselho || "-")}</td><td>${u.ativo ? "sim" : "não"}</td><td></td></tr>`);
       const e = el('<button class="btn small sec">Editar</button>'); e.onclick = () => usuarioForm(u, carregar);
       tr.lastElementChild.appendChild(e); t.querySelector("tbody").appendChild(tr);
@@ -353,10 +355,12 @@ views.usuarios = async () => {
   $("#novo").onclick = () => usuarioForm(null, carregar);
   carregar();
 };
-function usuarioForm(u, reload) {
+async function usuarioForm(u, reload) {
+  const unidades = await api("/unidades").catch(() => []);
+  const values = u ? { ...u, unidade_id: u.unidade ? u.unidade.id : "" } : {};
   formModal({
     title: u ? "Editar usuário" : "Novo usuário",
-    values: u || {},
+    values,
     fields: [
       { name: "nome", label: "Nome", required: true, full: true },
       { name: "email", label: "E-mail", type: "email", required: !u },
@@ -365,6 +369,8 @@ function usuarioForm(u, reload) {
       { name: "conselho", label: "Conselho (CRM/COREN)" },
       { name: "cbo", label: "CBO" },
       { name: "cns", label: "CNS profissional" },
+      { name: "unidade_id", label: "Unidade", type: "select",
+        options: [{ value: "", label: "— todas / não definida —" }, ...unidades.map((un) => ({ value: un.id, label: un.nome }))] },
       ...(u ? [{ name: "ativo", label: "Ativo", type: "select", options: [{ value: "true", label: "Sim" }, { value: "false", label: "Não" }] }] : []),
     ],
     onSubmit: async (d) => {

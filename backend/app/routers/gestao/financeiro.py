@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...impressao import render_recibo, render_recibo_pdf
+from ...impressao import render_guia_tiss, render_guia_tiss_pdf, render_recibo, render_recibo_pdf
 from ...models import Cidadao, Cobranca, Usuario
 from ...schemas import CobrancaIn, CobrancaOut, FinanceiroResumoOut
 from ...security import exigir_perfis, usuario_atual
@@ -113,5 +113,19 @@ def recibo_pdf(cid: str, _: Usuario = Depends(usuario_atual), db: Session = Depe
         raise HTTPException(404, "Cobrança não encontrada")
     pdf = render_recibo_pdf(c)
     nome = f"recibo_{(c.cidadao.nome_completo or 'recibo').split()[0].lower()}.pdf"
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+@router.get("/cobrancas/{cid}/guia-tiss.pdf")
+def guia_tiss_pdf(cid: str, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+    c = db.get(Cobranca, cid)
+    if not c:
+        raise HTTPException(404, "Cobrança não encontrada")
+    try:
+        pdf = render_guia_tiss_pdf(c)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    nome = f"guia_tiss_{(c.cidadao.nome_completo or 'guia').split()[0].lower()}.pdf"
     return Response(pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{nome}"'})

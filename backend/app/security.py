@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .database import get_db
-from .models import Usuario
+from .models import Cidadao, Usuario
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -57,6 +57,46 @@ def usuario_atual(
     if usuario is None or not usuario.ativo:
         raise exc
     return usuario
+
+
+# ─────────── Portal do paciente ───────────
+# Token separado do login da equipe (escopo "portal"): não usa perfil nem
+# senha — a autenticação é CPF + data de nascimento (ver routers/expansao/portal.py).
+# Suficiente para validar a hipótese do MVP; um portal real de produção
+# trocaria isso por SMS/e-mail com código de uso único.
+_PORTAL_EXPIRES_MIN = 60
+
+
+def criar_token_portal(cidadao: Cidadao) -> str:
+    agora = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(cidadao.id),
+        "scope": "portal",
+        "iat": agora,
+        "exp": agora + timedelta(minutes=_PORTAL_EXPIRES_MIN),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def paciente_atual(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+) -> Cidadao:
+    exc = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Sessão do portal inválida ou expirada",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        if payload.get("scope") != "portal":
+            raise exc
+        cidadao_id = payload.get("sub")
+    except jwt.PyJWTError:
+        raise exc
+    cidadao = db.get(Cidadao, cidadao_id)
+    if cidadao is None:
+        raise exc
+    return cidadao
 
 
 def exigir_perfis(*perfis: str):

@@ -20,6 +20,7 @@ from .models import (
     Medicao,
     MedicamentoEmUso,
     ProblemaAtendimento,
+    Unidade,
     Usuario,
 )
 from .security import hash_senha
@@ -53,6 +54,20 @@ def _seed_convenios(db) -> dict[str, Convenio]:
     return {c.nome: c for c in convenios}
 
 
+def _seed_unidades(db) -> dict[str, Unidade]:
+    if db.scalar(select(Unidade).limit(1)):
+        return {u.nome: u for u in db.scalars(select(Unidade))}
+    unidades = [
+        Unidade(nome="Vida+ Clínica — Unidade Centro", endereco="Rua da Saúde, 100 - Centro",
+               telefone="(27) 3000-0000"),
+        Unidade(nome="Vida+ Clínica — Unidade Sul", endereco="Av. Sul, 500 - Bairro Sul",
+               telefone="(27) 3000-0001"),
+    ]
+    db.add_all(unidades)
+    db.commit()
+    return {u.nome: u for u in unidades}
+
+
 def _seed_estoque(db) -> None:
     if db.scalar(select(ItemEstoque).limit(1)):
         return
@@ -78,17 +93,21 @@ def _seed_demo(db) -> None:
         return
 
     convenios = _seed_convenios(db)
+    unidades = _seed_unidades(db)
+    centro = unidades["Vida+ Clínica — Unidade Centro"].id
 
     admin = Usuario(nome="Administrador", email="admin@ubs.local",
                     senha_hash=hash_senha("123456"), perfil="ADMIN")
     recep = Usuario(nome="Joana Recepção", email="recepcao@ubs.local",
-                    senha_hash=hash_senha("123456"), perfil="RECEPCAO", cbo="422105")
+                    senha_hash=hash_senha("123456"), perfil="RECEPCAO", cbo="422105",
+                    unidade_id=centro)
     enf = Usuario(nome="Enf. Paulo Lima", email="enfermagem@ubs.local",
                   senha_hash=hash_senha("123456"), perfil="ENFERMEIRO",
-                  conselho="COREN 123456-ES", cbo="223505")
+                  conselho="COREN 123456-ES", cbo="223505", unidade_id=centro)
     med = Usuario(nome="Dra. Marina Alves", email="medico@ubs.local",
                   senha_hash=hash_senha("123456"), perfil="MEDICO",
-                  conselho="CRM 54321-ES", cbo="225125", cns="700000000000001")
+                  conselho="CRM 54321-ES", cbo="225125", cns="700000000000001",
+                  unidade_id=centro)
     db.add_all([admin, recep, enf, med])
     db.flush()
 
@@ -232,6 +251,9 @@ def _seed_demo(db) -> None:
         Agendamento(cidadao_id=joao.id, profissional_id=med.id, criado_por_id=recep.id,
                    data=hoje + timedelta(days=2), hora="10:30", tipo="RETORNO",
                    status="AGENDADO", observacao="Retorno com exames"),
+        Agendamento(cidadao_id=ana.id, profissional_id=med.id, criado_por_id=recep.id,
+                   data=hoje + timedelta(days=3), hora="16:00", tipo="TELECONSULTA",
+                   status="AGENDADO", observacao="Acompanhamento pré-natal por vídeo"),
     ])
 
     # Financeiro (cobranças de exemplo)
@@ -239,7 +261,7 @@ def _seed_demo(db) -> None:
         Cobranca(cidadao_id=joao.id, atendimento_id=hist.id, criado_por_id=recep.id,
                 convenio_id=convenios["Unimed Regional"].id,
                 descricao="Consulta — clínico geral", valor=180.00,
-                forma_pagamento="CONVENIO", status="PAGO",
+                forma_pagamento="CONVENIO", status="PAGO", codigo_tuss="10101012",
                 pago_em=agora - timedelta(days=90)),
         Cobranca(cidadao_id=ana.id, criado_por_id=recep.id,
                 descricao="Consulta — pré-natal (particular)", valor=150.00,
@@ -265,6 +287,8 @@ _MIGRACOES = [
     "ALTER TABLE encaminhamentos ADD COLUMN IF NOT EXISTS cid VARCHAR(10)",
     "ALTER TABLE cidadaos ADD COLUMN IF NOT EXISTS convenio_id UUID REFERENCES convenios(id)",
     "ALTER TABLE cidadaos ADD COLUMN IF NOT EXISTS numero_carteirinha VARCHAR(40)",
+    "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS unidade_id UUID REFERENCES unidades(id)",
+    "ALTER TABLE cobrancas ADD COLUMN IF NOT EXISTS codigo_tuss VARCHAR(20)",
 ]
 
 

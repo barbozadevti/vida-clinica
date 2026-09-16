@@ -29,6 +29,24 @@ class TokenOut(BaseModel):
     usuario: UsuarioResumo
 
 
+# ─────────── Unidades (multiclínica) ───────────
+class UnidadeIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=150)
+    endereco: str | None = None
+    telefone: str | None = None
+    ativo: bool = True
+
+
+class UnidadeOut(UnidadeIn, ORM):
+    id: uuid.UUID
+    criado_em: datetime
+
+
+class UnidadeResumo(ORM):
+    id: uuid.UUID
+    nome: str
+
+
 class UsuarioBase(BaseModel):
     nome: str = Field(min_length=1, max_length=150)
     email: str
@@ -36,6 +54,7 @@ class UsuarioBase(BaseModel):
     cns: str | None = None
     cbo: str | None = None
     conselho: str | None = None
+    unidade_id: uuid.UUID | None = None
     ativo: bool = True
 
 
@@ -50,6 +69,7 @@ class UsuarioUpdate(BaseModel):
     cns: str | None = None
     cbo: str | None = None
     conselho: str | None = None
+    unidade_id: uuid.UUID | None = None
     ativo: bool | None = None
     senha: str | None = Field(default=None, min_length=4, max_length=72)
 
@@ -57,6 +77,7 @@ class UsuarioUpdate(BaseModel):
 class UsuarioOut(UsuarioBase, ORM):
     id: uuid.UUID
     criado_em: datetime
+    unidade: UnidadeResumo | None = None
 
 
 # ─────────── Cidadão ───────────
@@ -227,6 +248,7 @@ class CidadaoResumo(ORM):
     id: uuid.UUID
     nome_completo: str
     nome_social: str | None = None
+    telefone: str | None = None
     data_nascimento: date
     sexo: str
     idade: int | None = None
@@ -428,6 +450,7 @@ class CobrancaIn(BaseModel):
     valor: float = Field(gt=0)
     forma_pagamento: str = "DINHEIRO"
     convenio_id: uuid.UUID | None = None
+    codigo_tuss: str | None = None
 
 
 class CobrancaOut(ORM):
@@ -435,9 +458,11 @@ class CobrancaOut(ORM):
     descricao: str
     valor: float
     forma_pagamento: str
+    codigo_tuss: str | None = None
     status: str
     criado_em: datetime
     pago_em: datetime | None = None
+    atendimento_id: uuid.UUID | None = None
     cidadao: CidadaoResumo | None = None
     convenio: ConvenioResumo | None = None
 
@@ -478,3 +503,41 @@ class MovimentoEstoqueOut(ORM):
     quantidade: float
     motivo: str | None = None
     criado_em: datetime
+
+
+# ─────────── Portal do paciente ───────────
+class PortalLoginIn(BaseModel):
+    cpf: str = Field(min_length=1)
+    data_nascimento: date
+
+
+class PortalTokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    paciente: CidadaoResumo
+
+
+class PortalAgendamentoOut(ORM):
+    id: uuid.UUID
+    data: date
+    hora: str
+    tipo: str
+    status: str
+    profissional: UsuarioResumo | None = None
+
+
+class PortalAtendimentoOut(ORM):
+    id: uuid.UUID
+    criado_em: datetime
+    fim_atendimento: datetime | None = None
+    desfecho: str | None = None
+    profissional: UsuarioResumo | None = None
+    tem_receita: bool = False
+    tem_atestado: bool = False
+    tem_exames: bool = False
+
+
+class PortalMeuPainelOut(BaseModel):
+    paciente: CidadaoOut
+    proximos_agendamentos: list[PortalAgendamentoOut]
+    atendimentos_anteriores: list[PortalAtendimentoOut]
