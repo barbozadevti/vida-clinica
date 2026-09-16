@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import (
+from ...database import get_db
+from ...models import (
     Agendamento,
     Atendimento,
     CatalogoCID,
@@ -17,13 +17,13 @@ from ..models import (
     ItemEstoque,
     Usuario,
 )
-from ..schemas import (
+from ...schemas import (
     CodigoOut,
     ExameCatalogoOut,
     MedicamentoCatalogoOut,
     PainelOut,
 )
-from ..security import usuario_atual
+from ...security import usuario_atual
 
 router = APIRouter(prefix="/api", tags=["catálogos"])
 

@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import Usuario
-from ..schemas import UsuarioCreate, UsuarioOut, UsuarioUpdate
-from ..security import PERFIS, exigir_perfis, hash_senha, usuario_atual
+from ...database import get_db
+from ...models import Usuario
+from ...schemas import UsuarioCreate, UsuarioOut, UsuarioUpdate
+from ...security import PERFIS, exigir_perfis, hash_senha, usuario_atual
 
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 _ADMIN = exigir_perfis("ADMIN")

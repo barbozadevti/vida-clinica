@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import (
+from ...database import get_db
+from ...models import (
     Atendimento,
     Atestado,
     MedicamentoEmUso,
@@ -13,7 +13,7 @@ from ..models import (
     SolicitacaoExame,
     Usuario,
 )
-from ..schemas import (
+from ...schemas import (
     AtestadoIn,
     AtestadoOut,
     PrescricaoIn,
@@ -21,11 +21,11 @@ from ..schemas import (
     SolicitacaoExameIn,
     SolicitacaoExameOut,
 )
-from ..impressao import render as render_doc
-from ..impressao import render_pdf
-from ..models import Usuario as _U
-from ..util import com_vitais
-from ..security import exigir_perfis, usuario_atual
+from ...impressao import render as render_doc
+from ...impressao import render_pdf
+from ...models import Usuario as _U
+from ...util import com_vitais
+from ...security import exigir_perfis, usuario_atual
 
 router = APIRouter(prefix="/api/atendimentos", tags=["documentos (Passo 4)"])
 _CLINICO = exigir_perfis("MEDICO", "ENFERMEIRO")

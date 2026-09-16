@@ -99,6 +99,10 @@ uvicorn app.main:app --port 8010 --reload
 
 ## Estrutura
 
+A pasta `routers/` (backend) e `assets/js/` (frontend) são organizadas pelas
+mesmas ondas do MVP identificadas na Lean Inception — `core` é transversal,
+`prontuario` é o MVP 1 e `gestao` é o MVP 2:
+
 ```
 esus/
 ├── backend/app/
@@ -110,13 +114,27 @@ esus/
 │   ├── bootstrap.py       # create_all + migração leve + seed de demonstração
 │   ├── catalogos_seed.py  # listas de CID-10, CIAP-2, medicamentos, exames
 │   ├── impressao.py       # HTML A4 + PDF dos documentos (xhtml2pdf)
-│   └── routers/           # auth, usuarios, cidadaos, fila, atendimentos, documentos,
-│                          # relatorios, catalogos, agenda, convenios, financeiro, estoque
-├── frontend/              # index.html + assets (app.js, styles.css) — SPA sem build
+│   └── routers/
+│       ├── core/          # auth, usuarios, catalogos, relatorios
+│       ├── prontuario/    # MVP 1 — cidadaos, fila, atendimentos, documentos
+│       └── gestao/        # MVP 2 — agenda, convenios, financeiro, estoque
+├── frontend/
+│   ├── index.html
+│   └── assets/
+│       ├── styles.css
+│       └── js/
+│           ├── core.js        # infra, auth, navegação, painel, cidadãos, usuários
+│           ├── prontuario.js  # MVP 1 — fila, acolhimento, SOAP, documentos, retornos
+│           ├── gestao.js      # MVP 2 — agenda, convênios, financeiro, estoque, relatórios
+│           └── boot.js        # inicializa a sessão (carregado por último)
 ├── scripts/               # pg.ps1, reset_db.ps1
 ├── Dockerfile + render.yaml   # deploy na nuvem (Render), opcional
 └── ABRIR e-SUS.bat
 ```
+
+Front-end permanece sem framework nem build — os quatro arquivos JS dividem
+o mesmo escopo global (carregados em `<script>` sequenciais no `index.html`),
+só a organização em arquivos mudou.
 
 ## Publicar na nuvem (opcional)
 

@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import Atendimento, Cidadao, Medicao, Usuario
-from ..schemas import AcolhimentoIn, AtendimentoOut, AtendimentoResumo, FilaIn
-from ..security import exigir_perfis, usuario_atual
-from ..util import com_vitais
+from ...database import get_db
+from ...models import Atendimento, Cidadao, Medicao, Usuario
+from ...schemas import AcolhimentoIn, AtendimentoOut, AtendimentoResumo, FilaIn
+from ...security import exigir_perfis, usuario_atual
+from ...util import com_vitais
 
 router = APIRouter(prefix="/api/fila", tags=["fila (Passo 1)"])
 

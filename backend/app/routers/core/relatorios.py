@@ -6,10 +6,10 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import Atendimento, ProblemaAtendimento, Usuario
-from ..schemas import AtendimentoResumo, ProducaoOut
-from ..security import exigir_perfis, usuario_atual
+from ...database import get_db
+from ...models import Atendimento, ProblemaAtendimento, Usuario
+from ...schemas import AtendimentoResumo, ProducaoOut
+from ...security import exigir_perfis, usuario_atual
 
 router = APIRouter(prefix="/api/relatorios", tags=["relatórios"])
 _GESTAO = exigir_perfis("MEDICO", "ENFERMEIRO")

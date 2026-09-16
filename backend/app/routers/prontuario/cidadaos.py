@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import Alergia, Cidadao, MedicamentoEmUso, Usuario
-from ..schemas import (
+from ...database import get_db
+from ...models import Alergia, Cidadao, MedicamentoEmUso, Usuario
+from ...schemas import (
     AlergiaIn,
     AlergiaOut,
     CidadaoCreate,
@@ -13,8 +13,8 @@ from ..schemas import (
     MedicamentoUsoIn,
     MedicamentoUsoOut,
 )
-from ..security import exigir_perfis, usuario_atual
-from ..util import cidadao_dict
+from ...security import exigir_perfis, usuario_atual
+from ...util import cidadao_dict
 
 router = APIRouter(prefix="/api/cidadaos", tags=["cidadaos"])
 _CADASTRO = exigir_perfis("RECEPCAO", "ENFERMEIRO")

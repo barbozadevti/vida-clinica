@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import Agendamento, Atendimento, Cidadao, Usuario
-from ..schemas import AgendamentoIn, AgendamentoOut, AtendimentoResumo
-from ..security import exigir_perfis, usuario_atual
-from ..util import com_vitais
+from ...database import get_db
+from ...models import Agendamento, Atendimento, Cidadao, Usuario
+from ...schemas import AgendamentoIn, AgendamentoOut, AtendimentoResumo
+from ...security import exigir_perfis, usuario_atual
+from ...util import com_vitais
 
 router = APIRouter(prefix="/api/agenda", tags=["agenda"])
 _RECEP = exigir_perfis("RECEPCAO", "ADMIN")

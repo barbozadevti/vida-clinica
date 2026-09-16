@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import ItemEstoque, MovimentoEstoque, Usuario
-from ..schemas import (
+from ...database import get_db
+from ...models import ItemEstoque, MovimentoEstoque, Usuario
+from ...schemas import (
     ItemEstoqueIn,
     ItemEstoqueOut,
     MovimentoEstoqueIn,
     MovimentoEstoqueOut,
 )
-from ..security import exigir_perfis, usuario_atual
+from ...security import exigir_perfis, usuario_atual
 
 router = APIRouter(prefix="/api/estoque", tags=["estoque"])
 _GESTAO = exigir_perfis("ADMIN", "ENFERMEIRO", "RECEPCAO")

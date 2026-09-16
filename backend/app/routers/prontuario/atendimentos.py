@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import (
+from ...database import get_db
+from ...models import (
     Alergia,
     Atendimento,
     Encaminhamento,
@@ -14,7 +14,7 @@ from ..models import (
     ProblemaAtendimento,
     Usuario,
 )
-from ..schemas import (
+from ...schemas import (
     AtendimentoOut,
     AtendimentoResumo,
     FinalizarIn,
@@ -25,8 +25,8 @@ from ..schemas import (
     SerieEvolucao,
     SoapIn,
 )
-from ..security import exigir_perfis, usuario_atual
-from ..util import cidadao_dict, com_vitais
+from ...security import exigir_perfis, usuario_atual
+from ...util import cidadao_dict, com_vitais
 
 router = APIRouter(prefix="/api/atendimentos", tags=["atendimento (Passos 2, 3, 5)"])
 _CLINICO = exigir_perfis("MEDICO", "ENFERMEIRO")

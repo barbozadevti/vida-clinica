@@ -5,11 +5,11 @@ from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..impressao import render_recibo, render_recibo_pdf
-from ..models import Cidadao, Cobranca, Usuario
-from ..schemas import CobrancaIn, CobrancaOut, FinanceiroResumoOut
-from ..security import exigir_perfis, usuario_atual
+from ...database import get_db
+from ...impressao import render_recibo, render_recibo_pdf
+from ...models import Cidadao, Cobranca, Usuario
+from ...schemas import CobrancaIn, CobrancaOut, FinanceiroResumoOut
+from ...security import exigir_perfis, usuario_atual
 
 router = APIRouter(prefix="/api/financeiro", tags=["financeiro"])
 _GESTAO = exigir_perfis("ADMIN", "RECEPCAO")

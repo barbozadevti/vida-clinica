@@ -8,20 +8,13 @@ from sqlalchemy import text
 
 from .bootstrap import inicializar
 from .database import engine
-from .routers import (
-    agenda,
-    atendimentos,
-    auth,
-    catalogos,
-    cidadaos,
-    convenios,
-    documentos,
-    estoque,
-    fila,
-    financeiro,
-    relatorios,
-    usuarios,
-)
+# Routers agrupados pelas ondas do MVP (ver "Lean Inception — Vida+ Clínica"):
+# core        -> autenticação e administração, transversal aos dois MVPs
+# prontuario  -> MVP 1, prontuário digital do atendimento
+# gestao      -> MVP 2, fechamento financeiro do dia (agenda/convênios/financeiro/estoque)
+from .routers.core import auth, catalogos, relatorios, usuarios
+from .routers.prontuario import atendimentos, cidadaos, documentos, fila
+from .routers.gestao import agenda, convenios, estoque, financeiro
 
 app = FastAPI(
     title="Vida+ Clínica — Sistema de Gestão Clínica",
