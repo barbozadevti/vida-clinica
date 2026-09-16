@@ -9,6 +9,25 @@ desde o primeiro dia.
 (sem framework, sem build) · autenticação JWT + bcrypt · geração de PDF com xhtml2pdf ·
 perfis **MÉDICO, ENFERMEIRO, RECEPÇÃO, ADMIN**, cada um vendo só o que precisa ver.
 
+## Estratégia de produto (Lean Inception)
+
+O produto foi (re)lido com o método **Lean Inception**, de Paulo Caroli: visão do
+produto, personas, jornadas, sequenciador de funcionalidades e canvas MVP — o
+documento completo está publicado à parte. Resumo:
+
+- **Objetivos:** reduzir o tempo administrativo da recepção e da equipe clínica ·
+  ter controle financeiro confiável do caixa do dia · garantir segurança e
+  rastreabilidade do prontuário.
+- **Personas:** Recepção, Enfermagem, Médico(a) e Administrador(a) — os quatro
+  perfis de login do sistema.
+- **MVP 1 — Prontuário digital do atendimento** (10/09): login/perfis, fila,
+  acolhimento, SOAP, documentos em PDF, finalização com assinatura.
+- **MVP 2 — Fechamento financeiro do dia** (12/09): agenda, convênios,
+  financeiro com recibo em PDF, estoque com alerta.
+- **Próximas ondas (planejadas):** confirmação de agendamento por WhatsApp e
+  portal do paciente primeiro; teleconsulta, app mobile, integração TISS com
+  convênios e multiclínica depois — nessa ordem de esforço/valor/confiança.
+
 > Projeto pessoal full-stack — modelagem de dados, API REST documentada (Swagger),
 > regras de negócio de uma clínica real (agenda, convênios, financeiro, estoque,
 > prontuário) e front-end funcional do zero. O fluxo de atendimento (fila → folha de
