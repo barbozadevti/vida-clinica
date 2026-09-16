@@ -49,7 +49,7 @@ views.fila = async () => {
     const fila = await api("/fila");
     const box = $("#lista"); box.innerHTML = "";
     if (!fila.length) return (box.innerHTML = '<p class="empty">Ninguém aguardando atendimento.</p>');
-    const t = el(`<table><thead><tr><th>Risco</th><th>Cidadão</th><th>Idade</th><th>Motivo / queixa</th><th>Acolh.</th><th>Status</th><th>Chegada</th><th></th></tr></thead><tbody></tbody></table>`);
+    const t = el(`<table><thead><tr><th>Risco</th><th>Paciente</th><th>Idade</th><th>Motivo / queixa</th><th>Acolh.</th><th>Status</th><th>Chegada</th><th></th></tr></thead><tbody></tbody></table>`);
     fila.forEach((a) => {
       const c = a.cidadao || {};
       const tr = el(`<tr>
@@ -91,9 +91,9 @@ views.fila = async () => {
 async function filaForm(reload) {
   const cids = await api("/cidadaos");
   formModal({
-    title: "Adicionar cidadão à fila",
+    title: "Adicionar paciente à fila",
     fields: [
-      { name: "cidadao_id", label: "Cidadão", required: true, type: "select", full: true,
+      { name: "cidadao_id", label: "Paciente", required: true, type: "select", full: true,
         options: cids.map((c) => ({ value: c.id, label: `${c.nome_completo}${c.cpf ? " — " + c.cpf : ""}` })) },
       { name: "tipo", label: "Tipo", type: "select", options: ["CONSULTA", "RETORNO", "URGENCIA", "PROCEDIMENTO"].map((v) => ({ value: v, label: v })) },
       { name: "classificacao_risco", label: "Classificação de risco (opcional — a enfermagem pode fazer)", type: "select", full: true,
@@ -226,7 +226,7 @@ function renderSoap(at, editavel) {
     ? '<div class="muted" style="font-size:12px;margin-bottom:6px">Sinais vitais preenchidos a partir do acolhimento — ajuste se reaferir.</div>' : "";
   box.innerHTML = `<div class="soap">
     <div class="soap-bloco S"><h3><span class="soap-tag">S</span> Subjetivo</h3>
-      <textarea id="s_sub" ${dis} placeholder="Queixa principal, história da doença atual, relato do cidadão…">${esc(at.subjetivo || "")}</textarea></div>
+      <textarea id="s_sub" ${dis} placeholder="Queixa principal, história da doença atual, relato do paciente…">${esc(at.subjetivo || "")}</textarea></div>
     <div class="soap-bloco O"><h3><span class="soap-tag">O</span> Objetivo</h3>
       ${nota}
       <div class="grid4" style="margin-bottom:10px">
@@ -245,7 +245,7 @@ function renderSoap(at, editavel) {
       ${editavel ? '<div id="cid-ac" style="margin-bottom:6px"></div><div id="ciap-ac" style="margin-bottom:8px"></div>' : ""}
       <textarea id="s_ava" ${dis} placeholder="Diagnóstico, hipóteses, avaliação clínica…">${esc(at.avaliacao || "")}</textarea></div>
     <div class="soap-bloco P"><h3><span class="soap-tag">P</span> Plano</h3>
-      <textarea id="s_pla" ${dis} placeholder="Conduta, orientações ao cidadão, plano terapêutico…">${esc(at.plano || "")}</textarea></div>
+      <textarea id="s_pla" ${dis} placeholder="Conduta, orientações ao paciente, plano terapêutico…">${esc(at.plano || "")}</textarea></div>
     ${editavel ? '<div><button class="btn" id="salvar-soap">Salvar registro clínico</button> <span class="muted" id="soap-status"></span></div>' : ""}
   </div>`;
 
@@ -507,7 +507,7 @@ views.retornos = async () => {
     const box = $("#lista"); box.innerHTML = "";
     if (!l.length) return (box.innerHTML = '<p class="empty">Nenhum retorno agendado no período.</p>');
     const recep = ["RECEPCAO", "ENFERMEIRO"].includes(user.perfil);
-    const t = el(`<table><thead><tr><th>Data do retorno</th><th>Cidadão</th><th>Profissional que agendou</th><th></th></tr></thead><tbody></tbody></table>`);
+    const t = el(`<table><thead><tr><th>Data do retorno</th><th>Paciente</th><th>Profissional que agendou</th><th></th></tr></thead><tbody></tbody></table>`);
     l.forEach((a) => {
       const tr = el(`<tr><td><b>${fmtD(a.retorno_data)}</b></td>
         <td>${esc(a.cidadao ? (a.cidadao.nome_social || a.cidadao.nome_completo) : "-")}</td>

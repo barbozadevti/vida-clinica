@@ -171,7 +171,7 @@ const MENU = [
   { v: "agenda", t: "Agenda", p: ["RECEPCAO", "ENFERMEIRO", "MEDICO"] },
   { v: "fila", t: "Atendimento do dia", p: ["MEDICO", "ENFERMEIRO", "RECEPCAO"] },
   { v: "retornos", t: "Retornos", p: ["RECEPCAO", "ENFERMEIRO", "MEDICO"] },
-  { v: "cidadaos", t: "Cidadãos", p: ["RECEPCAO", "ENFERMEIRO", "MEDICO"] },
+  { v: "cidadaos", t: "Pacientes", p: ["RECEPCAO", "ENFERMEIRO", "MEDICO"] },
   { v: "financeiro", t: "Financeiro", p: ["RECEPCAO", "ADMIN"] },
   { v: "estoque", t: "Estoque", p: ["RECEPCAO", "ENFERMEIRO", "ADMIN"] },
   { v: "convenios", t: "Convênios", p: ["RECEPCAO", "ADMIN"] },
@@ -214,7 +214,7 @@ views.painel = async () => {
       ["Retornos (7 dias)", d.retornos_7dias],
       ["Faturamento hoje", "R$ " + d.faturamento_hoje.toFixed(2).replace(".", ",")],
       ["Itens em estoque baixo", d.estoque_baixo],
-      ["Cidadãos cadastrados", d.cidadaos],
+      ["Pacientes cadastrados", d.cidadaos],
     ];
     $("#pc").innerHTML = `<div class="cards">
       ${cards.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}
@@ -228,14 +228,14 @@ views.painel = async () => {
 views.cidadaos = async () => {
   const editar = ["RECEPCAO", "ENFERMEIRO"].includes(user.perfil) || user.perfil === "ADMIN";
   viewEl.innerHTML = `
-    <div class="page-head"><h1 class="title">Cidadãos</h1>
-      ${editar ? '<button class="btn" id="novo">+ Novo cidadão</button>' : ""}</div>
+    <div class="page-head"><h1 class="title">Pacientes</h1>
+      ${editar ? '<button class="btn" id="novo">+ Novo paciente</button>' : ""}</div>
     <div class="panel"><input id="busca" placeholder="Buscar por nome, CPF ou CNS…" style="max-width:340px"/></div>
     <div class="panel" id="lista"></div>`;
   const carregar = async (q = "") => {
     const l = await api("/cidadaos" + (q ? `?q=${encodeURIComponent(q)}` : ""));
     const box = $("#lista"); box.innerHTML = "";
-    if (!l.length) return (box.innerHTML = '<p class="empty">Nenhum cidadão.</p>');
+    if (!l.length) return (box.innerHTML = '<p class="empty">Nenhum paciente.</p>');
     const t = el(`<table><thead><tr><th>Nome</th><th>Idade</th><th>CPF</th><th>Convênio</th><th></th></tr></thead><tbody></tbody></table>`);
     l.forEach((c) => {
       const tr = el(`<tr><td><b>${esc(c.nome_social || c.nome_completo)}</b>${c.nome_social ? "<br><span class='muted'>" + esc(c.nome_completo) + "</span>" : ""}</td>
@@ -257,7 +257,7 @@ async function cidadaoForm(c, reload) {
   const convenios = await api("/convenios").catch(() => []);
   const values = c ? { ...c, convenio_id: c.convenio ? c.convenio.id : "" } : {};
   formModal({
-    title: c ? "Editar cidadão" : "Novo cidadão",
+    title: c ? "Editar paciente" : "Novo paciente",
     values,
     fields: [
       { name: "nome_completo", label: "Nome completo", required: true, full: true },
@@ -276,7 +276,7 @@ async function cidadaoForm(c, reload) {
     onSubmit: async (d) => {
       if (c) await api(`/cidadaos/${c.id}`, { method: "PUT", body: JSON.stringify(d) });
       else await api("/cidadaos", { method: "POST", body: JSON.stringify(d) });
-      toast("Cidadão salvo"); reload();
+      toast("Paciente salvo"); reload();
     },
   });
 }

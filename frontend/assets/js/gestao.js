@@ -83,7 +83,7 @@ views.agenda = async () => {
     const l = await api(`/agenda?data=${$("#ag-data").value}`);
     const box = $("#ag-lista"); box.innerHTML = "";
     if (!l.length) return (box.innerHTML = '<p class="empty">Nenhum agendamento nesta data.</p>');
-    const t = el(`<table><thead><tr><th>Hora</th><th>Cidadão</th><th>Profissional</th><th>Tipo</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>`);
+    const t = el(`<table><thead><tr><th>Hora</th><th>Paciente</th><th>Profissional</th><th>Tipo</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>`);
     l.forEach((a) => {
       const c = a.cidadao || {};
       const tr = el(`<tr><td><b>${esc(a.hora)}</b><br><span class="muted">${a.duracao_min} min</span></td>
@@ -128,7 +128,7 @@ async function agendamentoForm(reload, dataPadrao) {
     title: "Novo agendamento",
     values: { data: dataPadrao || hojeInput(), duracao_min: 30, hora: "08:00" },
     fields: [
-      { name: "cidadao_id", label: "Cidadão", required: true, type: "select", full: true,
+      { name: "cidadao_id", label: "Paciente", required: true, type: "select", full: true,
         options: cids.map((c) => ({ value: c.id, label: `${c.nome_completo}${c.cpf ? " — " + c.cpf : ""}` })) },
       { name: "profissional_id", label: "Profissional", required: true, type: "select",
         options: clinicos.map((u) => ({ value: u.id, label: `${u.nome} (${u.perfil})` })) },
@@ -211,7 +211,7 @@ views.financeiro = async () => {
     const l = await api("/financeiro/cobrancas");
     const box = $("#fn_lista"); box.innerHTML = "";
     if (!l.length) return (box.innerHTML = '<p class="empty">Nenhuma cobrança lançada.</p>');
-    const t = el(`<table><thead><tr><th>Data</th><th>Cidadão</th><th>Descrição</th><th>Valor</th><th>Forma</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>`);
+    const t = el(`<table><thead><tr><th>Data</th><th>Paciente</th><th>Descrição</th><th>Valor</th><th>Forma</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>`);
     l.forEach((c) => {
       const tr = el(`<tr><td>${fmtD(c.criado_em)}</td>
         <td>${esc(c.cidadao ? (c.cidadao.nome_social || c.cidadao.nome_completo) : "-")}</td>
@@ -246,7 +246,7 @@ async function cobrancaForm(reload) {
     title: "Nova cobrança",
     values: { descricao: "Consulta", forma_pagamento: "DINHEIRO" },
     fields: [
-      { name: "cidadao_id", label: "Cidadão", required: true, type: "select", full: true,
+      { name: "cidadao_id", label: "Paciente", required: true, type: "select", full: true,
         options: cids.map((c) => ({ value: c.id, label: `${c.nome_completo}${c.cpf ? " — " + c.cpf : ""}` })) },
       { name: "descricao", label: "Descrição", required: true, full: true },
       { name: "valor", label: "Valor (R$)", required: true, type: "number", step: "0.01", cast: "number" },
