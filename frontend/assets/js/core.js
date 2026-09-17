@@ -67,18 +67,28 @@ function formModal({ title, fields, values = {}, onSubmit, submitLabel = "Salvar
   });
   const a = el('<div class="modal-actions full"></div>');
   const c = el('<button type="button" class="btn sec">Cancelar</button>'); c.onclick = closeModal;
-  a.append(c, el(`<button type="submit" class="btn">${submitLabel}</button>`));
+  const salvarBtn = el(`<button type="submit" class="btn">${submitLabel}</button>`);
+  a.append(c, salvarBtn);
   f.appendChild(a);
-  f.onsubmit = async (e) => {
-    e.preventDefault();
+  let emAndamento = false;
+  const salvar = async () => {
+    if (emAndamento || !f.reportValidity()) return;
+    emAndamento = true;
     const data = Object.fromEntries(new FormData(f).entries());
     fields.forEach((fd) => {
       if (data[fd.name] === "") data[fd.name] = null;
       else if (fd.cast === "number" && data[fd.name] != null) data[fd.name] = Number(data[fd.name]);
       else if (fd.cast === "int" && data[fd.name] != null) data[fd.name] = parseInt(data[fd.name], 10);
     });
-    try { await onSubmit(data); closeModal(); } catch (err) { toast(err.message, true); }
+    try { await onSubmit(data); closeModal(); } catch (err) { toast(err.message, true); emAndamento = false; }
   };
+  // O clique no botão chama salvar() diretamente em vez de depender só do
+  // evento nativo "submit" do formulário: dentro do modal com scroll, o clique
+  // no botão type=submit às vezes não dispara a submissão nativa do form em
+  // alguns navegadores/contextos, deixando o usuário sem salvar e sem erro
+  // visível. O listener de submit continua para o Enter no teclado.
+  f.onsubmit = (e) => { e.preventDefault(); salvar(); };
+  salvarBtn.onclick = (e) => { e.preventDefault(); salvar(); };
   openModal(title, f);
 }
 
