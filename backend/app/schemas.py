@@ -83,16 +83,16 @@ class UsuarioOut(UsuarioBase, ORM):
 # ─────────── Cidadão ───────────
 class CidadaoBase(BaseModel):
     nome_completo: str = Field(min_length=1, max_length=150)
-    nome_social: str | None = None
-    cpf: str | None = None
-    cns: str | None = None
+    nome_social: str | None = Field(default=None, max_length=150)
+    cpf: str | None = Field(default=None, max_length=11)
+    cns: str | None = Field(default=None, max_length=15)
     data_nascimento: date
     sexo: str = Field(pattern="^[FMI]$")
-    nome_mae: str | None = None
-    telefone: str | None = None
-    endereco: str | None = None
+    nome_mae: str | None = Field(default=None, max_length=150)
+    telefone: str | None = Field(default=None, max_length=20)
+    endereco: str | None = Field(default=None, max_length=255)
     convenio_id: uuid.UUID | None = None
-    numero_carteirinha: str | None = None
+    numero_carteirinha: str | None = Field(default=None, max_length=40)
 
 
 class CidadaoCreate(CidadaoBase):
@@ -100,17 +100,17 @@ class CidadaoCreate(CidadaoBase):
 
 
 class CidadaoUpdate(BaseModel):
-    nome_completo: str | None = None
-    nome_social: str | None = None
-    cpf: str | None = None
-    cns: str | None = None
+    nome_completo: str | None = Field(default=None, max_length=150)
+    nome_social: str | None = Field(default=None, max_length=150)
+    cpf: str | None = Field(default=None, max_length=11)
+    cns: str | None = Field(default=None, max_length=15)
     data_nascimento: date | None = None
     sexo: str | None = Field(default=None, pattern="^[FMI]$")
-    nome_mae: str | None = None
-    telefone: str | None = None
-    endereco: str | None = None
+    nome_mae: str | None = Field(default=None, max_length=150)
+    telefone: str | None = Field(default=None, max_length=20)
+    endereco: str | None = Field(default=None, max_length=255)
     convenio_id: uuid.UUID | None = None
-    numero_carteirinha: str | None = None
+    numero_carteirinha: str | None = Field(default=None, max_length=40)
 
 
 class ConvenioResumo(ORM):

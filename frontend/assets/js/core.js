@@ -20,7 +20,15 @@ async function api(path, opt = {}) {
   if (r.status === 401) { sair(); throw new Error("Sessão expirada."); }
   if (r.status === 204) return null;
   const d = await r.json().catch(() => null);
-  if (!r.ok) { const m = d && d.detail; throw new Error(typeof m === "string" ? m : m ? JSON.stringify(m) : `Erro ${r.status}`); }
+  if (!r.ok) {
+    const m = d && d.detail;
+    let msg;
+    if (typeof m === "string") msg = m;
+    // erro de validação do FastAPI: lista de {loc, msg} — vira "campo: mensagem"
+    else if (Array.isArray(m)) msg = m.map((e) => (e.loc ? `${e.loc[e.loc.length - 1]}: ${e.msg}` : e.msg)).join("; ");
+    else msg = m ? JSON.stringify(m) : `Erro ${r.status}`;
+    throw new Error(msg);
+  }
   return d;
 }
 

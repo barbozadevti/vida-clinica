@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from sqlalchemy.exc import DataError, IntegrityError
 
 from .bootstrap import inicializar
 from .database import engine
@@ -46,6 +47,24 @@ async def _sem_cache(request, call_next):
     if request.url.path.startswith(("/api/", "/assets/")):
         resp.headers["Cache-Control"] = "no-store"
     return resp
+
+
+@app.exception_handler(DataError)
+async def _data_error_handler(request: Request, exc: DataError):
+    # rede de segurança: um campo maior do que a coluna aceita (ex.: telefone
+    # com mais de 20 caracteres) não deve derrubar a requisição com 500 cru.
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "Um dos campos enviados é inválido ou excede o tamanho máximo permitido."},
+    )
+
+
+@app.exception_handler(IntegrityError)
+async def _integrity_error_handler(request: Request, exc: IntegrityError):
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "Não foi possível salvar: um dos dados enviados já está em uso ou é inválido."},
+    )
 
 
 for r in (auth, usuarios, cidadaos, fila, atendimentos, documentos, relatorios,
