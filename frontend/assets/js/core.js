@@ -55,7 +55,16 @@ function openModal(title, body) {
 }
 const closeModal = () => ($("#modal-backdrop").hidden = true);
 $("#modal-close").onclick = closeModal;
-$("#modal-backdrop").onclick = (e) => e.target.id === "modal-backdrop" && closeModal();
+// Só fecha ao clicar fora se o CLIQUE COMEÇOU no fundo (mousedown e click no
+// próprio backdrop) — assim um clique que só termina ali (ex.: ao interagir
+// com um <select> perto da borda do formulário, ou arrastar o mouse durante
+// a digitação) não fecha o modal e derruba o que já foi preenchido.
+let _mousedownNoBackdrop = false;
+$("#modal-backdrop").addEventListener("mousedown", (e) => { _mousedownNoBackdrop = e.target.id === "modal-backdrop"; });
+$("#modal-backdrop").onclick = (e) => {
+  if (_mousedownNoBackdrop && e.target.id === "modal-backdrop") closeModal();
+  _mousedownNoBackdrop = false;
+};
 
 function formModal({ title, fields, values = {}, onSubmit, submitLabel = "Salvar" }) {
   const f = el('<form class="grid2"></form>');
