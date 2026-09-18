@@ -46,6 +46,10 @@ async def _sem_cache(request, call_next):
     resp = await call_next(request)
     if request.url.path.startswith(("/api/", "/assets/")):
         resp.headers["Cache-Control"] = "no-store"
+    elif request.url.path in ("/sw.js", "/manifest.json", "/portal-manifest.json"):
+        # o service worker e os manifests precisam ser revalidados a cada
+        # visita — senão o navegador pode ficar preso numa versão antiga
+        resp.headers["Cache-Control"] = "no-cache"
     return resp
 
 
@@ -93,3 +97,18 @@ if FRONTEND.exists():
     @app.get("/portal", include_in_schema=False)
     def portal_index():
         return FileResponse(FRONTEND / "portal.html")
+
+    @app.get("/manifest.json", include_in_schema=False)
+    def manifest():
+        return FileResponse(FRONTEND / "manifest.json", media_type="application/manifest+json")
+
+    @app.get("/portal-manifest.json", include_in_schema=False)
+    def portal_manifest():
+        return FileResponse(FRONTEND / "portal-manifest.json", media_type="application/manifest+json")
+
+    @app.get("/sw.js", include_in_schema=False)
+    def service_worker():
+        # servido na raiz (não em /assets/) de propósito: o escopo padrão de
+        # um service worker é o diretório de onde ele é servido, e precisa
+        # cobrir tanto "/" (app da equipe) quanto "/portal" (paciente).
+        return FileResponse(FRONTEND / "sw.js", media_type="application/javascript")

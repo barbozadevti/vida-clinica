@@ -1,0 +1,17 @@
+{
+  "name": "Portal do Paciente — Vida+ Clínica",
+  "short_name": "Portal Vida+",
+  "description": "Veja seus agendamentos e baixe seus documentos, sem precisar de senha.",
+  "start_url": "/portal",
+  "scope": "/portal",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#eef2f7",
+  "theme_color": "#1e6fd9",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

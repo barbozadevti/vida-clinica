@@ -54,8 +54,9 @@ documento completo está publicado à parte. Resumo:
 | **Usuários** | Cadastro/edição de usuários e perfis pelo ADMIN, com unidade de lotação. |
 | **Unidades (multiclínica)** | Cadastro de unidades/filiais; cada usuário pertence a uma unidade e só vê fila, agenda, relatórios e painel da própria unidade — o ADMIN pode ver tudo ou filtrar por unidade. |
 | **Portal do paciente** | Página própria (`/portal`) onde o paciente vê seus agendamentos e baixa seus documentos, sem precisar de senha. |
+| **App instalável (PWA)** | O app da equipe e o portal do paciente podem ser **instalados no celular** (ícone na tela inicial, tela cheia, funciona com internet instável) direto pelo navegador, sem loja de app. |
 
-### Ondas 4 e 5 — próximo incremento validado
+### Ondas 4 a 6 — próximo incremento validado
 
 Fatia mínima de cada ideia, para validar a hipótese sem construir a integração completa (o "M" de MVP):
 
@@ -66,6 +67,7 @@ Fatia mínima de cada ideia, para validar a hipótese sem construir a integraç�
 | **Teleconsulta** | Agendamento tipo "Teleconsulta" gera uma sala de vídeo (Jitsi Meet, gratuito) | Sem gravação, sem sala de espera virtual, sem integração com prontuário durante a chamada |
 | **Guia TISS** | PDF simplificado com os campos de uma guia de consulta (beneficiário, prestador, procedimento, CID) | Não é o XML eletrônico que a ANS exige para envio às operadoras — é o documento, não a integração de faturamento |
 | **Multiclínica** | Cadastro de unidades/filiais; fila, agenda, relatórios e painel filtrados por unidade (ADMIN vê tudo ou filtra); documentos impressos usam o timbre da unidade do atendimento | Estoque e faturamento do painel ainda são globais — esses módulos não têm `unidade_id` |
+| **App mobile (PWA)** | Manifest + service worker: "Adicionar à tela inicial" no Android/iOS, ícone e splash próprios, abre em tela cheia (sem barra do navegador), shell da aplicação funciona com rede instável | Não é um app nativo (sem push notification real, sem acesso a APIs do aparelho) — é a fatia mais fina possível da hipótese "app mobile", sem custo de loja nem build nativo |
 
 ### O fluxo de atendimento (prontuário)
 
@@ -144,8 +146,11 @@ esus/
 ├── frontend/
 │   ├── index.html         # sistema da equipe
 │   ├── portal.html        # portal do paciente (mini-app à parte)
+│   ├── manifest.json / portal-manifest.json  # Onda 6 — PWA (cada um com seu start_url)
+│   ├── sw.js              # Onda 6 — service worker (shell da app, nunca cacheia /api/)
 │   └── assets/
 │       ├── styles.css
+│       ├── icons/          # ícones do PWA (gerados por scripts/gen_icons.py)
 │       └── js/
 │           ├── core.js        # infra, auth, navegação, painel, cidadãos, usuários
 │           ├── prontuario.js  # MVP 1 — fila, acolhimento, SOAP, documentos, retornos
@@ -153,7 +158,7 @@ esus/
 │           ├── expansao.js    # Ondas 4/5 — unidades (multiclínica)
 │           ├── portal.js      # lógica do portal do paciente
 │           └── boot.js        # inicializa a sessão (carregado por último)
-├── scripts/               # pg.ps1, reset_db.ps1
+├── scripts/               # pg.ps1, reset_db.ps1, gen_icons.py
 ├── Dockerfile + render.yaml   # deploy na nuvem (Render), opcional
 └── ABRIR e-SUS.bat
 ```

@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vida+ Clínica — Sistema de Gestão</title>
   <link rel="stylesheet" href="/assets/styles.css" />
+  <!-- Onda 6 (Lean Inception) — PWA: instalável no celular sem loja de app -->
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/assets/icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#1e6fd9" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Vida+ Clínica" />
 </head>
 <body>
   <div id="login" class="login-wrap">
@@ -45,5 +53,10 @@
   <script src="/assets/js/gestao.js"></script>
   <script src="/assets/js/expansao.js"></script>
   <script src="/assets/js/boot.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+    }
+  </script>
 </body>
 </html>

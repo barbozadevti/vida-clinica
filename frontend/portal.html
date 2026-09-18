@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vida+ Clínica — Portal do Paciente</title>
   <link rel="stylesheet" href="/assets/styles.css" />
+  <!-- Onda 6 (Lean Inception) — PWA: paciente pode instalar o portal no celular -->
+  <link rel="manifest" href="/portal-manifest.json" />
+  <link rel="icon" href="/assets/icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#1e6fd9" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Portal Vida+" />
   <style>
     .portal-shell { max-width: 640px; margin: 0 auto; padding: 22px 16px 60px; }
     .portal-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
@@ -44,5 +52,10 @@
   <div id="toast" class="toast" hidden></div>
 
   <script src="/assets/js/portal.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+    }
+  </script>
 </body>
 </html>
