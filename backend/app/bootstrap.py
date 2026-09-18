@@ -19,6 +19,7 @@ from .models import (
     ItemEstoque,
     Medicao,
     MedicamentoEmUso,
+    Prescricao,
     ProblemaAtendimento,
     Unidade,
     Usuario,
@@ -27,17 +28,23 @@ from .security import hash_senha
 
 
 def _seed_catalogos(db) -> None:
-    if not db.scalar(select(CatalogoCID).limit(1)):
-        db.add_all(CatalogoCID(codigo=c, descricao=d) for c, d in cat.CID10)
-    if not db.scalar(select(CatalogoCIAP).limit(1)):
-        db.add_all(CatalogoCIAP(codigo=c, descricao=d) for c, d in cat.CIAP2)
-    if not db.scalar(select(CatalogoMedicamento).limit(1)):
-        db.add_all(
-            CatalogoMedicamento(nome=n, principio_ativo=p, apresentacao=a)
-            for n, p, a in cat.MEDICAMENTOS
-        )
-    if not db.scalar(select(CatalogoExame).limit(1)):
-        db.add_all(CatalogoExame(nome=n, sinonimia=s) for n, s in cat.EXAMES)
+    """Incremental (por código/nome), não "tudo ou nada": permite acrescentar
+    itens novos em catalogos_seed.py (ex.: exames de otorrino) e eles
+    aparecerem num banco que já tinha os catálogos antigos, sem precisar
+    resetar."""
+    existentes_cid = {c for (c,) in db.execute(select(CatalogoCID.codigo))}
+    db.add_all(CatalogoCID(codigo=c, descricao=d) for c, d in cat.CID10 if c not in existentes_cid)
+
+    existentes_ciap = {c for (c,) in db.execute(select(CatalogoCIAP.codigo))}
+    db.add_all(CatalogoCIAP(codigo=c, descricao=d) for c, d in cat.CIAP2 if c not in existentes_ciap)
+
+    existentes_med = {n for (n,) in db.execute(select(CatalogoMedicamento.nome))}
+    db.add_all(CatalogoMedicamento(nome=n, principio_ativo=p, apresentacao=a)
+              for n, p, a in cat.MEDICAMENTOS if n not in existentes_med)
+
+    existentes_exame = {n for (n,) in db.execute(select(CatalogoExame.nome))}
+    db.add_all(CatalogoExame(nome=n, sinonimia=s) for n, s in cat.EXAMES if n not in existentes_exame)
+
     db.commit()
 
 
@@ -408,6 +415,65 @@ def _seed_demo(db) -> None:
     print("[bootstrap] usuários e dados de exemplo criados (senha: 123456)")
 
 
+def _seed_otorrino(db) -> None:
+    """Acrescenta a especialista em otorrinolaringologia — ao contrário de
+    _seed_demo, roda toda vez (idempotente pelo e-mail) para não exigir reset
+    do banco em quem já estava usando o sistema."""
+    if db.scalar(select(Usuario).where(Usuario.email == "otorrino@ubs.local")):
+        return
+    centro = db.scalar(select(Unidade).where(Unidade.nome.like("%Centro%")))
+    recep = db.scalar(select(Usuario).where(Usuario.perfil == "RECEPCAO", Usuario.unidade_id == (centro.id if centro else None)))
+    if not centro or not recep:
+        return  # banco ainda nem foi inicializado — _seed_demo cuida do resto no próximo start
+
+    katia = Usuario(nome="Dra. Katia de Mello Portinho", email="otorrino@ubs.local",
+                    senha_hash=hash_senha("123456"), perfil="MEDICO",
+                    conselho="CRM 45210-ES", cbo="225151", cns="700000000000004",
+                    unidade_id=centro.id)
+    db.add(katia)
+    db.flush()
+
+    beatriz = Cidadao(
+        nome_completo="Beatriz Lima Cardoso", cpf="66677788899",
+        cns="700444555666777", data_nascimento=date(1985, 4, 22), sexo="F",
+        nome_mae="Marta Cardoso", telefone="(27) 99333-7070",
+        endereco="Rua das Orquídeas, 55 - Centro",
+    )
+    db.add(beatriz)
+    db.flush()
+
+    agora = datetime.now(timezone.utc)
+    hist = Atendimento(
+        cidadao_id=beatriz.id, profissional_id=katia.id, criado_por_id=recep.id,
+        unidade_id=centro.id,
+        status="FINALIZADO", tipo="CONSULTA", motivo="Dor facial e congestão nasal há 10 dias",
+        classificacao_risco="VERDE",
+        criado_em=agora - timedelta(days=4), inicio_atendimento=agora - timedelta(days=4),
+        fim_atendimento=agora - timedelta(days=4) + timedelta(minutes=20),
+        subjetivo="Dor em região de seios da face, secreção nasal purulenta e congestão há 10 dias, piora ao abaixar a cabeça.",
+        objetivo="Dor à palpação de seios maxilares. Rinoscopia com secreção purulenta em meato médio. Ausculta pulmonar normal.",
+        avaliacao="Sinusite aguda bacteriana (J01.9).",
+        plano="Amoxicilina + clavulanato 875/125mg 12/12h por 10 dias. Lavagem nasal com solução salina 3x/dia. Retorno se não melhorar em 72h.",
+        desfecho="RETORNO_AGENDADO", retorno_data=(date.today() + timedelta(days=3)),
+        assinado=True, assinado_em=agora - timedelta(days=4) + timedelta(minutes=20),
+    )
+    db.add(hist)
+    db.flush()
+    db.add(ProblemaAtendimento(atendimento_id=hist.id, sistema="CID10", codigo="J01.9",
+                                descricao="Sinusite aguda não especificada"))
+    db.add(Prescricao(atendimento_id=hist.id, medicamento="Amoxicilina + Clavulanato 875/125mg",
+                      posologia="1 comprimido de 12/12h por 10 dias", quantidade="20 comprimidos",
+                      via="oral", duracao_dias=10))
+
+    # fila de hoje: retorno de reavaliação, para aparecer já na demo
+    db.add(Atendimento(cidadao_id=beatriz.id, criado_por_id=recep.id, unidade_id=centro.id,
+                       status="AGUARDANDO", tipo="RETORNO", motivo="Retorno de sinusite — reavaliação",
+                       classificacao_risco="VERDE"))
+
+    db.commit()
+    print("[bootstrap] Dra. Katia de Mello Portinho (otorrinolaringologia) adicionada")
+
+
 # colunas adicionadas após a criação inicial (migração leve, Postgres)
 _MIGRACOES = [
     "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhimento TEXT",
@@ -440,3 +506,4 @@ def inicializar() -> None:
         _seed_catalogos(db)
         _seed_estoque(db)
         _seed_demo(db)
+        _seed_otorrino(db)

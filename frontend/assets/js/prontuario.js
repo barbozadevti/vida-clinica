@@ -350,17 +350,34 @@ function docPresc(at, editavel) {
   if ((at.prescricoes || []).length) $("#presc-imp").appendChild(botoesDoc(at.id, "receita", "Imprimir receita"));
   if (!editavel) return;
   const form = el(`<div class="grid3" style="margin-top:12px">
-    <div class="full" id="med-ac"></div>
+    <div class="full">
+      <div class="tabs" style="margin-bottom:8px">
+        <button type="button" class="tab active" id="p_tab_catalogo">Catálogo do SUS</button>
+        <button type="button" class="tab" id="p_tab_livre">Nome livre</button>
+      </div>
+      <div id="med-ac"></div>
+      <p id="med-livre-dica" class="muted" style="display:none;margin:0 0 10px">
+        Digite qualquer medicamento no campo "Medicamento" abaixo — não precisa estar na lista do SUS.</p>
+    </div>
     <div><label class="fld">Medicamento *</label><input id="p_med"/></div>
-    <div><label class="fld">Posologia *</label><input id="p_pos" placeholder="1 comp 12/12h por 7 dias"/></div>
-    <div><label class="fld">Quantidade</label><input id="p_qtd" placeholder="14 comprimidos"/></div>
-    <div><label class="fld">Via</label><input id="p_via" placeholder="oral"/></div>
+    <div><label class="fld">Posologia *</label><input id="p_pos" placeholder="ex.: 1 comp 12/12h por 7 dias"/></div>
+    <div><label class="fld">Quantidade</label><input id="p_qtd" placeholder="ex.: 14 comprimidos"/></div>
+    <div><label class="fld">Via</label><input id="p_via" placeholder="ex.: oral"/></div>
     <div><label class="fld">Duração (dias)</label><input id="p_dur" type="number"/></div>
     <div><label class="fld">Uso contínuo</label><select id="p_cont"><option value="false">Não</option><option value="true">Sim</option></select></div>
     <div class="full"><button class="btn" id="p_add">Adicionar à receita</button></div>
   </div>`);
   b.appendChild(form);
-  $("#med-ac").appendChild(autocomplete("/catalogo/medicamentos", "Buscar na farmácia municipal…", (it) => { $("#p_med").value = it.nome; }));
+  $("#med-ac").appendChild(autocomplete("/catalogo/medicamentos", "Buscar no catálogo do SUS…", (it) => { $("#p_med").value = it.nome; }));
+  $("#p_tab_catalogo").onclick = () => {
+    $("#p_tab_catalogo").classList.add("active"); $("#p_tab_livre").classList.remove("active");
+    $("#med-ac").style.display = ""; $("#med-livre-dica").style.display = "none";
+  };
+  $("#p_tab_livre").onclick = () => {
+    $("#p_tab_livre").classList.add("active"); $("#p_tab_catalogo").classList.remove("active");
+    $("#med-ac").style.display = "none"; $("#med-livre-dica").style.display = "";
+    $("#p_med").focus();
+  };
   $("#p_add").onclick = async () => {
     const body = { medicamento: $("#p_med").value, posologia: $("#p_pos").value, quantidade: $("#p_qtd").value || null,
       via: $("#p_via").value || null, duracao_dias: $("#p_dur").value ? Number($("#p_dur").value) : null,
