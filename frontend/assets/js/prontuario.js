@@ -262,7 +262,11 @@ function renderSoap(at, editavel) {
       <textarea id="s_obj" ${dis} placeholder="Exame físico, achados objetivos…">${esc(at.objetivo || "")}</textarea></div>
     <div class="soap-bloco A"><h3><span class="soap-tag">A</span> Avaliação</h3>
       <div id="probs" class="pill-list" style="margin-bottom:8px"></div>
-      ${editavel ? '<div id="cid-ac" style="margin-bottom:6px"></div><div id="ciap-ac" style="margin-bottom:8px"></div>' : ""}
+      ${editavel ? `<div id="cid-ac" style="margin-bottom:6px"></div><div id="ciap-ac" style="margin-bottom:8px"></div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input id="prob-livre" placeholder="ou digite um diagnóstico sem código…" style="flex:1"/>
+          <button type="button" class="btn small sec" id="prob-livre-add">Adicionar</button>
+        </div>` : ""}
       <textarea id="s_ava" ${dis} placeholder="Diagnóstico, hipóteses, avaliação clínica…">${esc(at.avaliacao || "")}</textarea></div>
     <div class="soap-bloco P"><h3><span class="soap-tag">P</span> Plano</h3>
       <textarea id="s_pla" ${dis} placeholder="Conduta, orientações ao paciente, plano terapêutico…">${esc(at.plano || "")}</textarea></div>
@@ -272,7 +276,7 @@ function renderSoap(at, editavel) {
   const renderProbs = () => {
     const p = $("#probs"); p.innerHTML = "";
     (at.problemas || []).forEach((pr) => {
-      const pill = el(`<span class="pill">${pr.sistema} ${esc(pr.codigo)} — ${esc(pr.descricao)}</span>`);
+      const pill = el(`<span class="pill">${pr.sistema}${pr.codigo ? " " + esc(pr.codigo) : ""} — ${esc(pr.descricao)}</span>`);
       if (editavel) {
         const b = el("<button>×</button>");
         b.onclick = async () => { await api(`/atendimentos/${at.id}/problemas/${pr.id}`, { method: "DELETE" }); at.problemas = at.problemas.filter((x) => x.id !== pr.id); renderProbs(); };
@@ -292,6 +296,12 @@ function renderSoap(at, editavel) {
     };
     $("#cid-ac").appendChild(autocomplete("/catalogo/cid10", "Buscar CID-10…", (it) => addProb("CID10", it)));
     $("#ciap-ac").appendChild(autocomplete("/catalogo/ciap2", "Buscar CIAP-2…", (it) => addProb("CIAP2", it)));
+    $("#prob-livre-add").onclick = () => {
+      const texto = $("#prob-livre").value.trim();
+      if (!texto) return;
+      addProb("LIVRE", { codigo: null, descricao: texto });
+      $("#prob-livre").value = "";
+    };
 
     $("#salvar-soap").onclick = async () => {
       const num = (id) => { const v = $(id).value; return v === "" ? null : Number(v); };
@@ -358,6 +368,10 @@ function docPresc(at, editavel) {
       <div id="med-ac"></div>
       <p id="med-livre-dica" class="muted" style="display:none;margin:0 0 10px">
         Digite qualquer medicamento no campo "Medicamento" abaixo — não precisa estar na lista do SUS.</p>
+      <div id="p_sug_wrap" style="display:none;background:var(--accent-wash,#eef2f7);border-radius:8px;padding:8px 10px;margin:0 0 10px">
+        <span class="muted" style="font-size:12.5px">Sugestão de posologia para este medicamento: <b id="p_sug_texto"></b></span>
+        <button type="button" class="btn small sec" id="p_sug_usar" style="margin-left:8px">Usar esta</button>
+      </div>
     </div>
     <div><label class="fld">Medicamento *</label><input id="p_med"/></div>
     <div><label class="fld">Posologia *</label><input id="p_pos" placeholder="ex.: 1 comp 12/12h por 7 dias"/></div>
@@ -368,7 +382,18 @@ function docPresc(at, editavel) {
     <div class="full"><button class="btn" id="p_add">Adicionar à receita</button></div>
   </div>`);
   b.appendChild(form);
-  $("#med-ac").appendChild(autocomplete("/catalogo/medicamentos", "Buscar no catálogo do SUS…", (it) => { $("#p_med").value = it.nome; }));
+  $("#med-ac").appendChild(autocomplete("/catalogo/medicamentos", "Buscar no catálogo do SUS…", (it) => {
+    $("#p_med").value = it.nome;
+    // sugestão de posologia ao lado, pra aplicar com um clique — vale para
+    // qualquer medicamento do catálogo, em qualquer especialidade
+    if (it.posologia_usual) {
+      $("#p_sug_texto").textContent = it.posologia_usual;
+      $("#p_sug_wrap").style.display = "";
+    } else {
+      $("#p_sug_wrap").style.display = "none";
+    }
+  }));
+  $("#p_sug_usar").onclick = () => { $("#p_pos").value = $("#p_sug_texto").textContent; };
   $("#p_tab_catalogo").onclick = () => {
     $("#p_tab_catalogo").classList.add("active"); $("#p_tab_livre").classList.remove("active");
     $("#med-ac").style.display = ""; $("#med-livre-dica").style.display = "none";
@@ -422,6 +447,8 @@ function docExame(at, editavel) {
   if (!editavel) return;
   const form = el(`<div style="margin-top:12px">
     <div id="ex-ac"></div>
+    <p class="muted" style="font-size:12.5px;margin:4px 0 0">A busca acima é só um atalho — pode digitar
+      qualquer exame direto na caixa abaixo, não precisa estar na lista do SUS.</p>
     <label class="fld" style="margin-top:8px">Exames solicitados (um por linha) *</label>
     <textarea id="e_lista" style="min-height:90px"></textarea>
     <div class="grid2" style="margin-top:8px">

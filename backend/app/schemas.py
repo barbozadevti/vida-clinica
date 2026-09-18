@@ -31,7 +31,7 @@ class TokenOut(BaseModel):
 
 # ─────────── Unidades (multiclínica) ───────────
 class UnidadeIn(BaseModel):
-    nome: str = Field(min_length=1, max_length=150)
+    nome: str = Field(min_length=1)
     endereco: str | None = None
     telefone: str | None = None
     ativo: bool = True
@@ -48,7 +48,7 @@ class UnidadeResumo(ORM):
 
 
 class UsuarioBase(BaseModel):
-    nome: str = Field(min_length=1, max_length=150)
+    nome: str = Field(min_length=1)
     email: str
     perfil: str
     cns: str | None = None
@@ -81,18 +81,21 @@ class UsuarioOut(UsuarioBase, ORM):
 
 
 # ─────────── Cidadão ───────────
+# Só CPF e CNS têm tamanho fixo de verdade (11 e 15 dígitos); todo o resto é
+# texto livre e fica sem limite de caractere (ver Onda de correções — campo
+# curto demais causava erro ao salvar um dado clínico legítimo mais longo).
 class CidadaoBase(BaseModel):
-    nome_completo: str = Field(min_length=1, max_length=150)
-    nome_social: str | None = Field(default=None, max_length=150)
+    nome_completo: str = Field(min_length=1)
+    nome_social: str | None = None
     cpf: str | None = Field(default=None, max_length=11)
     cns: str | None = Field(default=None, max_length=15)
     data_nascimento: date
     sexo: str = Field(pattern="^[FMI]$")
-    nome_mae: str | None = Field(default=None, max_length=150)
-    telefone: str | None = Field(default=None, max_length=20)
-    endereco: str | None = Field(default=None, max_length=255)
+    nome_mae: str | None = None
+    telefone: str | None = None
+    endereco: str | None = None
     convenio_id: uuid.UUID | None = None
-    numero_carteirinha: str | None = Field(default=None, max_length=40)
+    numero_carteirinha: str | None = None
 
 
 class CidadaoCreate(CidadaoBase):
@@ -100,17 +103,17 @@ class CidadaoCreate(CidadaoBase):
 
 
 class CidadaoUpdate(BaseModel):
-    nome_completo: str | None = Field(default=None, max_length=150)
-    nome_social: str | None = Field(default=None, max_length=150)
+    nome_completo: str | None = Field(default=None, min_length=1)
+    nome_social: str | None = None
     cpf: str | None = Field(default=None, max_length=11)
     cns: str | None = Field(default=None, max_length=15)
     data_nascimento: date | None = None
     sexo: str | None = Field(default=None, pattern="^[FMI]$")
-    nome_mae: str | None = Field(default=None, max_length=150)
-    telefone: str | None = Field(default=None, max_length=20)
-    endereco: str | None = Field(default=None, max_length=255)
+    nome_mae: str | None = None
+    telefone: str | None = None
+    endereco: str | None = None
     convenio_id: uuid.UUID | None = None
-    numero_carteirinha: str | None = Field(default=None, max_length=40)
+    numero_carteirinha: str | None = None
 
 
 class ConvenioResumo(ORM):
@@ -207,8 +210,9 @@ class AcolhimentoIn(BaseModel):
 
 
 class ProblemaIn(BaseModel):
-    sistema: str = Field(pattern="^(CID10|CIAP2)$")
-    codigo: str
+    # LIVRE = diagnóstico digitado à mão, sem código de CID-10/CIAP-2
+    sistema: str = Field(pattern="^(CID10|CIAP2|LIVRE)$")
+    codigo: str | None = None
     descricao: str
 
 
@@ -363,6 +367,7 @@ class MedicamentoCatalogoOut(ORM):
     nome: str
     principio_ativo: str | None = None
     apresentacao: str | None = None
+    posologia_usual: str | None = None
     disponivel_farmacia: bool
 
 
@@ -408,7 +413,7 @@ class ProducaoOut(BaseModel):
 
 # ─────────── Convênios ───────────
 class ConvenioIn(BaseModel):
-    nome: str = Field(min_length=1, max_length=150)
+    nome: str = Field(min_length=1)
     registro_ans: str | None = None
     telefone: str | None = None
     ativo: bool = True
@@ -449,7 +454,7 @@ class AgendamentoOut(ORM):
 class CobrancaIn(BaseModel):
     cidadao_id: uuid.UUID
     atendimento_id: uuid.UUID | None = None
-    descricao: str = Field(min_length=1, max_length=200)
+    descricao: str = Field(min_length=1)
     valor: float = Field(gt=0)
     forma_pagamento: str = "DINHEIRO"
     convenio_id: uuid.UUID | None = None
@@ -481,7 +486,7 @@ class FinanceiroResumoOut(BaseModel):
 
 # ─────────── Estoque ───────────
 class ItemEstoqueIn(BaseModel):
-    nome: str = Field(min_length=1, max_length=150)
+    nome: str = Field(min_length=1)
     categoria: str = "MATERIAL"
     unidade: str = "un"
     quantidade_minima: float = 0

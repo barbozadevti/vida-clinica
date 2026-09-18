@@ -39,8 +39,13 @@ def _seed_catalogos(db) -> None:
     db.add_all(CatalogoCIAP(codigo=c, descricao=d) for c, d in cat.CIAP2 if c not in existentes_ciap)
 
     existentes_med = {n for (n,) in db.execute(select(CatalogoMedicamento.nome))}
-    db.add_all(CatalogoMedicamento(nome=n, principio_ativo=p, apresentacao=a)
-              for n, p, a in cat.MEDICAMENTOS if n not in existentes_med)
+    db.add_all(CatalogoMedicamento(nome=n, principio_ativo=p, apresentacao=a, posologia_usual=pu)
+              for n, p, a, pu in cat.MEDICAMENTOS if n not in existentes_med)
+    # backfill: medicamento que já existia antes da posologia_usual existir
+    posologia_por_nome = {n: pu for n, _, _, pu in cat.MEDICAMENTOS}
+    for med in db.scalars(select(CatalogoMedicamento).where(CatalogoMedicamento.posologia_usual.is_(None))):
+        if med.nome in posologia_por_nome:
+            med.posologia_usual = posologia_por_nome[med.nome]
 
     existentes_exame = {n for (n,) in db.execute(select(CatalogoExame.nome))}
     db.add_all(CatalogoExame(nome=n, sinonimia=s) for n, s in cat.EXAMES if n not in existentes_exame)
@@ -487,6 +492,52 @@ _MIGRACOES = [
     "ALTER TABLE cobrancas ADD COLUMN IF NOT EXISTS codigo_tuss VARCHAR(20)",
     "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS unidade_id UUID REFERENCES unidades(id)",
     "ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS unidade_id UUID REFERENCES unidades(id)",
+    "ALTER TABLE catalogo_medicamentos ADD COLUMN IF NOT EXISTS posologia_usual TEXT",
+    # campos de texto livre "abertos" (sem limite de caractere) — só CPF, CNS
+    # e sexo continuam com tamanho fixo, por serem formatos realmente fixos.
+    # VARCHAR -> TEXT no Postgres é uma troca de metadado, sem reescrever a
+    # tabela nem perder dado.
+    "ALTER TABLE unidades ALTER COLUMN nome TYPE TEXT",
+    "ALTER TABLE unidades ALTER COLUMN endereco TYPE TEXT",
+    "ALTER TABLE unidades ALTER COLUMN telefone TYPE TEXT",
+    "ALTER TABLE usuarios ALTER COLUMN nome TYPE TEXT",
+    "ALTER TABLE usuarios ALTER COLUMN conselho TYPE TEXT",
+    "ALTER TABLE convenios ALTER COLUMN nome TYPE TEXT",
+    "ALTER TABLE convenios ALTER COLUMN telefone TYPE TEXT",
+    "ALTER TABLE cidadaos ALTER COLUMN nome_completo TYPE TEXT",
+    "ALTER TABLE cidadaos ALTER COLUMN nome_social TYPE TEXT",
+    "ALTER TABLE cidadaos ALTER COLUMN nome_mae TYPE TEXT",
+    "ALTER TABLE cidadaos ALTER COLUMN telefone TYPE TEXT",
+    "ALTER TABLE cidadaos ALTER COLUMN endereco TYPE TEXT",
+    "ALTER TABLE cidadaos ALTER COLUMN numero_carteirinha TYPE TEXT",
+    "ALTER TABLE alergias ALTER COLUMN substancia TYPE TEXT",
+    "ALTER TABLE alergias ALTER COLUMN reacao TYPE TEXT",
+    "ALTER TABLE medicamentos_em_uso ALTER COLUMN descricao TYPE TEXT",
+    "ALTER TABLE medicamentos_em_uso ALTER COLUMN posologia TYPE TEXT",
+    "ALTER TABLE medicamentos_em_uso ALTER COLUMN via TYPE TEXT",
+    "ALTER TABLE atendimentos ALTER COLUMN motivo TYPE TEXT",
+    "ALTER TABLE atendimento_problemas ALTER COLUMN descricao TYPE TEXT",
+    "ALTER TABLE prescricoes ALTER COLUMN medicamento TYPE TEXT",
+    "ALTER TABLE prescricoes ALTER COLUMN posologia TYPE TEXT",
+    "ALTER TABLE prescricoes ALTER COLUMN quantidade TYPE TEXT",
+    "ALTER TABLE prescricoes ALTER COLUMN via TYPE TEXT",
+    "ALTER TABLE prescricoes ALTER COLUMN observacao TYPE TEXT",
+    "ALTER TABLE atestados ALTER COLUMN cid TYPE TEXT",
+    "ALTER TABLE solicitacoes_exame ALTER COLUMN indicacao_clinica TYPE TEXT",
+    "ALTER TABLE encaminhamentos ALTER COLUMN especialidade TYPE TEXT",
+    "ALTER TABLE encaminhamentos ALTER COLUMN cid TYPE TEXT",
+    "ALTER TABLE agendamentos ALTER COLUMN observacao TYPE TEXT",
+    "ALTER TABLE cobrancas ALTER COLUMN descricao TYPE TEXT",
+    "ALTER TABLE itens_estoque ALTER COLUMN nome TYPE TEXT",
+    "ALTER TABLE movimentos_estoque ALTER COLUMN motivo TYPE TEXT",
+    "ALTER TABLE catalogo_medicamentos ALTER COLUMN nome TYPE TEXT",
+    "ALTER TABLE catalogo_medicamentos ALTER COLUMN principio_ativo TYPE TEXT",
+    "ALTER TABLE catalogo_medicamentos ALTER COLUMN apresentacao TYPE TEXT",
+    "ALTER TABLE catalogo_cid10 ALTER COLUMN descricao TYPE TEXT",
+    "ALTER TABLE catalogo_ciap2 ALTER COLUMN descricao TYPE TEXT",
+    "ALTER TABLE catalogo_exames ALTER COLUMN nome TYPE TEXT",
+    "ALTER TABLE catalogo_exames ALTER COLUMN sinonimia TYPE TEXT",
+    "ALTER TABLE atendimento_problemas ALTER COLUMN codigo DROP NOT NULL",
 ]
 
 

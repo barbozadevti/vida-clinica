@@ -42,7 +42,9 @@ def medicamentos(q: str | None = Query(default=None), _: Usuario = Depends(usuar
 @router.get("/catalogo/cid10", response_model=list[CodigoOut])
 def cid10(q: str | None = Query(default=None), _: Usuario = Depends(usuario_atual),
           db: Session = Depends(get_db)):
-    stmt = select(CatalogoCID).order_by(CatalogoCID.codigo).limit(50)
+    # ordem alfabética pela descrição — é por ela que o profissional procura,
+    # não pelo código decorado
+    stmt = select(CatalogoCID).order_by(CatalogoCID.descricao).limit(50)
     if q:
         t = f"%{q}%"
         stmt = stmt.where(or_(CatalogoCID.codigo.ilike(t), CatalogoCID.descricao.ilike(t)))
@@ -52,7 +54,7 @@ def cid10(q: str | None = Query(default=None), _: Usuario = Depends(usuario_atua
 @router.get("/catalogo/ciap2", response_model=list[CodigoOut])
 def ciap2(q: str | None = Query(default=None), _: Usuario = Depends(usuario_atual),
           db: Session = Depends(get_db)):
-    stmt = select(CatalogoCIAP).order_by(CatalogoCIAP.codigo).limit(50)
+    stmt = select(CatalogoCIAP).order_by(CatalogoCIAP.descricao).limit(50)
     if q:
         t = f"%{q}%"
         stmt = stmt.where(or_(CatalogoCIAP.codigo.ilike(t), CatalogoCIAP.descricao.ilike(t)))

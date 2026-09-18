@@ -26,15 +26,21 @@ def test_criar_paciente_ok(client):
     assert "idade" in r.json()
 
 
-def test_criar_paciente_telefone_maior_que_limite_da_coluna_da_422_nao_500(client):
-    # regressão: antes desse fix, um telefone > 20 caracteres derrubava a
-    # requisição com um 500 cru (ver commit "Corrige erro 500 ao salvar
-    # paciente com campo maior que o limite do banco").
+def test_criar_paciente_com_telefone_ou_endereco_bem_longos_funciona(client):
+    # Campos de texto livre (telefone, endereço, nome...) não têm mais limite
+    # de caractere — só CPF, CNS e sexo são de tamanho fixo de verdade. Antes
+    # dessa decisão, um valor longo aqui derrubava a requisição com 500 cru;
+    # depois, com validação estrita, dava 422 mesmo sendo um dado legítimo.
+    # Agora tem que simplesmente funcionar.
     h = auth_headers(client, "recepcao@ubs.local")
-    dados = {**_PACIENTE_BASE, "cpf": "22233344400", "telefone": "Rua Teste Completo, 123 - isso não é telefone"}
+    dados = {
+        **_PACIENTE_BASE, "cpf": "22233344400",
+        "telefone": "(27) 99999-9999 - falar com a irmã Maria no período da tarde, ramal 123",
+        "endereco": "Rua " + "Muito Longa " * 20 + ", número 123, apto 45, bloco B, próximo à praça",
+        "nome_mae": "Maria da Conceição de Oliveira e Silva Nascimento Pereira dos Santos",
+    }
     r = client.post("/api/cidadaos", json=dados, headers=h)
-    assert r.status_code == 422
-    assert "telefone" in r.text
+    assert r.status_code == 201, r.text
 
 
 def test_criar_paciente_cpf_duplicado_da_conflito(client):
