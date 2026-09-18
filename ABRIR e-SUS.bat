@@ -33,22 +33,48 @@ goto pg_done
 
 :start_pg
 rem limpeza defensiva: se uma tentativa anterior travou no meio do caminho
-rem (ex.: a janela foi fechada enquanto o banco ainda estava recuperando de
-rem um desligamento anterior), pode sobrar processo "preso" e uma trava
-rem antiga (postmaster.pid) que impedem o proximo start de funcionar. So
-rem fazemos essa limpeza aqui porque o pg_isready ACIMA ja confirmou que
-rem nada esta respondendo na porta 5432 -- ou seja, nao ha servidor saudavel
-rem para atrapalhar.
+rem (ex.: o Windows foi desligado com o banco ainda aberto -- isso NUNCA da
+rem chance do Postgres encerrar direito, entao TODA inicializacao apos
+rem desligar o PC faz uma recuperacao automatica, que pode levar dezenas de
+rem segundos), pode sobrar processo "preso" e uma trava antiga
+rem (postmaster.pid) que impedem o proximo start de funcionar. So fazemos
+rem essa limpeza aqui porque o pg_isready ACIMA ja confirmou que nada esta
+rem respondendo na porta 5432 -- ou seja, nao ha servidor saudavel para
+rem atrapalhar.
 powershell -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq 'postgres.exe' -and $_.CommandLine -like '*pgdata*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 if exist "C:\Users\rafap\pgdata\postmaster.pid" del /f /q "C:\Users\rafap\pgdata\postmaster.pid" >nul 2>&1
-"C:\Users\rafap\pgsql\bin\pg_ctl.exe" -D "C:\Users\rafap\pgdata" -l "C:\Users\rafap\pgdata\server.log" -o "-p 5432" start >nul 2>&1
-"C:\Users\rafap\pgsql\bin\pg_isready.exe" -h 127.0.0.1 -p 5432 -t 25 >nul 2>&1
-if errorlevel 1 goto pg_failed
+echo    Isso pode levar ate alguns minutos apos desligar o computador (o
+echo    banco precisa recuperar de um desligamento que nao foi limpo)...
+rem IMPORTANTE: "pg_ctl start" e chamado UMA UNICA VEZ aqui (com -W, sem
+rem esperar). Quem espera de verdade e o loop de pg_isready logo abaixo, que
+rem so FICA CONFERINDO se o processo ja lancado terminou de subir -- ele
+rem NUNCA chama "pg_ctl start" de novo. Chamar start uma segunda vez enquanto
+rem o primeiro ainda esta recuperando lanca um SEGUNDO postgres.exe brigando
+rem pela mesma pasta de dados, o que so atrapalha e ja causou problema aqui.
+"C:\Users\rafap\pgsql\bin\pg_ctl.exe" -D "C:\Users\rafap\pgdata" -l "C:\Users\rafap\pgdata\server.log" -o "-p 5432" -W start >nul 2>&1
+set PG_TENTATIVA=0
+
+:start_pg_espera
+"C:\Users\rafap\pgsql\bin\pg_isready.exe" -h 127.0.0.1 -p 5432 -t 5 >nul 2>&1
+if not errorlevel 1 goto pg_ok
+<nul set /p "=."
+set /a PG_TENTATIVA+=1
+if %PG_TENTATIVA% GEQ 60 goto pg_failed
+timeout /t 5 /nobreak >nul 2>&1
+goto start_pg_espera
+
+:pg_ok
+echo.
 echo    OK.
 goto pg_done
 
 :pg_failed
+echo.
 echo    ERRO: o PostgreSQL nao respondeu. Veja C:\Users\rafap\pgdata\server.log
+echo.
+echo    DICA: isso acontece de novo a cada vez que o computador e desligado
+echo    porque o banco nunca e encerrado de forma limpa. Para resolver de
+echo    vez, veja "Instalar o PostgreSQL como servico do Windows" no README.
 pause
 exit /b
 

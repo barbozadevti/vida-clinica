@@ -106,6 +106,38 @@ uvicorn app.main:app --port 8010 --reload
   estoque, agenda, unidades e exemplos de cobranças).
 - `scripts\reset_db.ps1` recria tudo do zero.  `scripts\pg.ps1 psql` abre o console SQL.
 
+### "PostgreSQL não respondeu" toda vez que liga o computador
+
+**Causa:** o PostgreSQL aqui roda como um processo comum (não como serviço do
+Windows). Quando você desliga o computador, o Windows nunca dá chance dele
+encerrar de forma limpa — então **toda inicialização seguinte precisa fazer uma
+recuperação automática**, que combinada com o antivírus segurando o arquivo de
+log por alguns segundos, pode levar de 30 a 90 segundos. O atalho já foi
+ajustado para aguardar esse tempo e tentar de novo sozinho antes de desistir,
+mas o sintoma pode voltar a aparecer (é esperado, não é um novo defeito).
+
+**Solução definitiva (uma vez só, requer PowerShell "Executar como
+administrador")** — registrar o PostgreSQL como serviço do Windows. Um serviço
+é controlado pelo próprio Windows: ele recebe um pedido de parada limpo antes
+do computador desligar (acabando com a recuperação automática) e já sobe
+sozinho no boot, antes de você abrir o atalho:
+
+```powershell
+# feche o atalho da clínica antes (nenhum Postgres "solto" pode estar rodando)
+& "C:\Users\rafap\pgsql\bin\pg_ctl.exe" register -N "PostgresVidaClinica" -D "C:\Users\rafap\pgdata" -S auto -o "-p 5432"
+Start-Service "PostgresVidaClinica"
+```
+
+Para desfazer, se precisar: `Stop-Service "PostgresVidaClinica"; & "C:\Users\rafap\pgsql\bin\pg_ctl.exe" unregister -N "PostgresVidaClinica"`.
+
+Se o serviço não iniciar por erro de permissão na pasta `C:\Users\rafap\pgdata`,
+dê controle total ao usuário "SYSTEM" nessa pasta (Propriedades → Segurança)
+ou registre com `-U` e a sua própria conta do Windows.
+
+(Não registrei o serviço automaticamente porque isso exige privilégio de
+administrador, que esta sessão não tem — e é uma mudança de configuração do
+sistema que cabe a você aprovar e rodar.)
+
 ## Usuários de teste (senha `123456`)
 
 | E-mail | Perfil | Unidade |
