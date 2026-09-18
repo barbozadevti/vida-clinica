@@ -138,6 +138,22 @@ ou registre com `-U` e a sua própria conta do Windows.
 administrador, que esta sessão não tem — e é uma mudança de configuração do
 sistema que cabe a você aprovar e rodar.)
 
+## Testes automatizados
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+Roda contra um banco isolado (`esus_test`, criado uma vez com
+`psql -U postgres -c "CREATE DATABASE esus_test;"`), zerado e re-semeado a
+cada teste com o mesmo `bootstrap.py` de produção — não toca no banco `esus`
+usado pelo atalho. Cobre autenticação/permissões por perfil, validação de
+cadastro de paciente (inclusive o bug do erro 500 corrigido nesta sessão) e
+o filtro multiclínica (fila, agenda e relatórios por unidade).
+
 ## Usuários de teste (senha `123456`)
 
 | E-mail | Perfil | Unidade |
@@ -175,6 +191,7 @@ esus/
 │       ├── prontuario/    # MVP 1 — cidadaos, fila, atendimentos, documentos
 │       ├── gestao/        # MVP 2 — agenda, convenios, financeiro, estoque
 │       └── expansao/      # Ondas 4/5 — unidades (multiclínica), portal do paciente
+├── backend/tests/         # pytest — auth/permissões, cadastro de paciente, multiclínica
 ├── frontend/
 │   ├── index.html         # sistema da equipe
 │   ├── portal.html        # portal do paciente (mini-app à parte)
