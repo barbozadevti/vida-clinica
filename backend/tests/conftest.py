@@ -23,6 +23,8 @@ def _banco_limpo():
     Sul, pacientes, fila etc. — ver app/bootstrap.py)."""
     with engine.begin() as conn:
         conn.execute(text(f"TRUNCATE TABLE {_TABELAS} RESTART IDENTITY CASCADE"))
+    from app import ratelimit
+    ratelimit._falhas.clear()  # limitador de login é estado em memória do processo
     yield
 
 

@@ -4,11 +4,12 @@ de nascimento. MVP para validar a hipótese; um portal de produção trocaria
 essa autenticação por SMS/e-mail com código de uso único."""
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ... import ratelimit
 from ...database import get_db
 from ...impressao import render_pdf
 from ...models import Agendamento, Atendimento, Cidadao
@@ -29,11 +30,18 @@ def _so_digitos(s: str) -> str:
 
 
 @router.post("/entrar", response_model=PortalTokenOut)
-def entrar(dados: PortalLoginIn, db: Session = Depends(get_db)):
+def entrar(dados: PortalLoginIn, request: Request, db: Session = Depends(get_db)):
     cpf = _so_digitos(dados.cpf)
+    # CPF não é segredo e data de nascimento tem pouca entropia — sem limite
+    # de tentativas, dava pra "adivinhar" o nascimento de um CPF conhecido.
+    chave_cpf = f"portal:{cpf}"
+    chave_ip = f"portal-ip:{request.client.host if request.client else '?'}"
+    ratelimit.checar_bloqueio(chave_cpf, chave_ip)
     cidadao = db.scalar(select(Cidadao).where(Cidadao.cpf == cpf)) if cpf else None
     if not cidadao or cidadao.data_nascimento != dados.data_nascimento:
+        ratelimit.registrar_falha(chave_cpf, chave_ip)
         raise HTTPException(401, "CPF ou data de nascimento não conferem")
+    ratelimit.limpar(chave_cpf, chave_ip)
     return PortalTokenOut(access_token=criar_token_portal(cidadao), paciente=cidadao)
 
 
