@@ -163,6 +163,7 @@ o filtro multiclínica (fila, agenda e relatórios por unidade).
 | `recepcao@ubs.local` | RECEPÇÃO | Centro |
 | `medico.sul@ubs.local` | MÉDICO (Dra. Camila Duarte) | Sul |
 | `recepcao.sul@ubs.local` | RECEPÇÃO | Sul |
+| `otorrino@ubs.local` | MÉDICO (Dra. Katia de Mello Portinho — otorrinolaringologia) | Centro |
 | `admin@ubs.local` | ADMIN | todas |
 
 Portal do paciente (<http://127.0.0.1:8010/portal>) — sem senha, entra com CPF + data de
