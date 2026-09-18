@@ -32,6 +32,15 @@ echo    Ja estava rodando.
 goto pg_done
 
 :start_pg
+rem limpeza defensiva: se uma tentativa anterior travou no meio do caminho
+rem (ex.: a janela foi fechada enquanto o banco ainda estava recuperando de
+rem um desligamento anterior), pode sobrar processo "preso" e uma trava
+rem antiga (postmaster.pid) que impedem o proximo start de funcionar. So
+rem fazemos essa limpeza aqui porque o pg_isready ACIMA ja confirmou que
+rem nada esta respondendo na porta 5432 -- ou seja, nao ha servidor saudavel
+rem para atrapalhar.
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq 'postgres.exe' -and $_.CommandLine -like '*pgdata*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+if exist "C:\Users\rafap\pgdata\postmaster.pid" del /f /q "C:\Users\rafap\pgdata\postmaster.pid" >nul 2>&1
 "C:\Users\rafap\pgsql\bin\pg_ctl.exe" -D "C:\Users\rafap\pgdata" -l "C:\Users\rafap\pgdata\server.log" -o "-p 5432" start >nul 2>&1
 "C:\Users\rafap\pgsql\bin\pg_isready.exe" -h 127.0.0.1 -p 5432 -t 25 >nul 2>&1
 if errorlevel 1 goto pg_failed

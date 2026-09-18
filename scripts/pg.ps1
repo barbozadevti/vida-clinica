@@ -13,6 +13,14 @@ switch ($Acao) {
     if ($LASTEXITCODE -eq 0) {
       Write-Output "Ja estava rodando."
     } else {
+      # limpeza defensiva: uma tentativa anterior pode ter deixado processo
+      # preso + trava antiga (postmaster.pid) se a janela/console foi fechado
+      # no meio de uma recuperacao. So limpamos aqui pois o pg_isready acima
+      # ja confirmou que nada esta respondendo na porta.
+      Get-CimInstance Win32_Process -Filter "Name='postgres.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like "*pgdata*" } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+      Remove-Item "$PGDATA\postmaster.pid" -Force -ErrorAction SilentlyContinue
       & "$PGBIN\pg_ctl.exe" -D $PGDATA -l "$PGDATA\server.log" -o "-p 5432" start
     }
   }
