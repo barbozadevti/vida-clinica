@@ -284,6 +284,7 @@ class PrescricaoIn(BaseModel):
     via: str | None = None
     duracao_dias: int | None = None
     uso_continuo: bool = False
+    controle_especial: bool = False
     observacao: str | None = None
 
 

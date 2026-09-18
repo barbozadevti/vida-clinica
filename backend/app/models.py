@@ -246,6 +246,9 @@ class Prescricao(Base):
     via: Mapped[str | None] = mapped_column(Text)
     duracao_dias: Mapped[int | None] = mapped_column(Integer)
     uso_continuo: Mapped[bool] = mapped_column(Boolean, default=False)
+    controle_especial: Mapped[bool] = mapped_column(Boolean, default=False)
+    # receituário de controle especial (Portaria SVS/MS 344/98) — psicotrópicos,
+    # entorpecentes etc.; imprime em documento separado, com 2 vias
     observacao: Mapped[str | None] = mapped_column(Text)
 
     atendimento: Mapped["Atendimento"] = relationship(back_populates="prescricoes")

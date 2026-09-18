@@ -342,22 +342,31 @@ function renderDocs(at, editavel) {
 function docPresc(at, editavel) {
   const b = $("#doc-body"); b.innerHTML = "";
   const lista = el("<div></div>");
+  const montaImpressao = () => {
+    const imp = $("#presc-imp");
+    if (!imp) return;
+    imp.innerHTML = "";
+    const todas = at.prescricoes || [];
+    const simples = todas.filter((p) => !p.controle_especial);
+    const controle = todas.filter((p) => p.controle_especial);
+    if (simples.length) imp.appendChild(botoesDoc(at.id, "receita-simples", "Receita simples"));
+    if (controle.length) imp.appendChild(botoesDoc(at.id, "receita-controle", "Receita de controle especial"));
+  };
   const pinta = () => {
     lista.innerHTML = (at.prescricoes || []).length ? "" : '<p class="muted">Nenhum medicamento prescrito.</p>';
     (at.prescricoes || []).forEach((p) => {
       const row = el(`<div style="border-bottom:1px solid var(--border);padding:8px 0">
-        <b>${esc(p.medicamento)}</b> — ${esc(p.posologia)} ${p.quantidade ? "· " + esc(p.quantidade) : ""} ${p.uso_continuo ? "· <span class='badge'>uso contínuo</span>" : ""}</div>`);
+        <b>${esc(p.medicamento)}</b> — ${esc(p.posologia)} ${p.quantidade ? "· " + esc(p.quantidade) : ""} ${p.uso_continuo ? "· <span class='badge'>uso contínuo</span>" : ""} ${p.controle_especial ? "· <span class='badge' style='background:#b91c1c'>controle especial</span>" : ""}</div>`);
       if (editavel) { const x = el('<button class="btn small danger" style="margin-left:8px">remover</button>');
         x.onclick = async () => { await api(`/atendimentos/${at.id}/prescricoes/${p.id}`, { method: "DELETE" }); at.prescricoes = at.prescricoes.filter((y) => y.id !== p.id); docPresc(at, editavel); };
         row.appendChild(x); }
       lista.appendChild(row);
     });
-    const imp = $("#presc-imp");
-    if (imp) { imp.innerHTML = ""; if ((at.prescricoes || []).length) imp.appendChild(botoesDoc(at.id, "receita", "Imprimir receita")); }
+    montaImpressao();
   };
   pinta(); b.appendChild(lista);
   b.appendChild(el('<div id="presc-imp" style="margin-top:10px"></div>'));
-  if ((at.prescricoes || []).length) $("#presc-imp").appendChild(botoesDoc(at.id, "receita", "Imprimir receita"));
+  montaImpressao();
   if (!editavel) return;
   const form = el(`<div class="grid3" style="margin-top:12px">
     <div class="full">
@@ -379,6 +388,10 @@ function docPresc(at, editavel) {
     <div><label class="fld">Via</label><input id="p_via" placeholder="ex.: oral"/></div>
     <div><label class="fld">Duração (dias)</label><input id="p_dur" type="number"/></div>
     <div><label class="fld">Uso contínuo</label><select id="p_cont"><option value="false">Não</option><option value="true">Sim</option></select></div>
+    <div><label class="fld">Receita</label><select id="p_controle">
+      <option value="false">Simples</option>
+      <option value="true">Controle especial (Portaria 344)</option>
+    </select></div>
     <div class="full"><button class="btn" id="p_add">Adicionar à receita</button></div>
   </div>`);
   b.appendChild(form);
@@ -406,7 +419,7 @@ function docPresc(at, editavel) {
   $("#p_add").onclick = async () => {
     const body = { medicamento: $("#p_med").value, posologia: $("#p_pos").value, quantidade: $("#p_qtd").value || null,
       via: $("#p_via").value || null, duracao_dias: $("#p_dur").value ? Number($("#p_dur").value) : null,
-      uso_continuo: $("#p_cont").value === "true" };
+      uso_continuo: $("#p_cont").value === "true", controle_especial: $("#p_controle").value === "true" };
     if (!body.medicamento || !body.posologia) return toast("Informe medicamento e posologia", true);
     try { const novo = await api(`/atendimentos/${at.id}/prescricoes`, { method: "POST", body: JSON.stringify(body) });
       at.prescricoes.push(novo); docPresc(at, editavel);
@@ -474,7 +487,9 @@ function docExame(at, editavel) {
 function botoesImpressao(at) {
   const wrap = el('<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>');
   wrap.appendChild(botoesDoc(at.id, "resumo", "Resumo"));
-  if ((at.prescricoes || []).length) wrap.appendChild(botoesDoc(at.id, "receita", "Receita"));
+  const presc = at.prescricoes || [];
+  if (presc.some((p) => !p.controle_especial)) wrap.appendChild(botoesDoc(at.id, "receita-simples", "Receita simples"));
+  if (presc.some((p) => p.controle_especial)) wrap.appendChild(botoesDoc(at.id, "receita-controle", "Receita controle especial"));
   if ((at.atestados || []).length) wrap.appendChild(botoesDoc(at.id, "atestado", "Atestado"));
   if ((at.solicitacoes_exame || []).length) wrap.appendChild(botoesDoc(at.id, "exames", "Requisição de exames"));
   if ((at.encaminhamentos || []).length) wrap.appendChild(botoesDoc(at.id, "encaminhamento", "Guia de encaminhamento"));
@@ -543,10 +558,12 @@ Assinado por ${esc(at.profissional ? at.profissional.nome : "")} em ${fmtDT(at.a
   };
 }
 
-// visualização somente-leitura de um atendimento (histórico)
+// visualização somente-leitura de um atendimento (histórico) — permite
+// reimprimir qualquer documento já emitido e, se o paciente pedir depois,
+// emitir um atestado retroativo (o prontuário em si continua travado)
 async function verAtendimento(id) {
   const at = await api(`/atendimentos/${id}`);
-  const probs = (at.problemas || []).map((p) => `${p.sistema} ${p.codigo} — ${p.descricao}`).join("<br>") || "—";
+  const probs = (at.problemas || []).map((p) => `${p.sistema}${p.codigo ? " " + esc(p.codigo) : ""} — ${esc(p.descricao)}`).join("<br>") || "—";
   const presc = (at.prescricoes || []).map((p) => `${esc(p.medicamento)} — ${esc(p.posologia)}`).join("<br>") || "—";
   const w = el(`<div>
     <p class="muted">${fmtDT(at.fim_atendimento || at.criado_em)} · ${esc(at.profissional ? at.profissional.nome : "")} · desfecho: <b>${esc((at.desfecho || "-").replace(/_/g, " "))}</b></p>
@@ -555,9 +572,41 @@ async function verAtendimento(id) {
     <div class="soap-bloco A" style="margin-top:8px"><b>A</b><br>${probs}<br>${esc(at.avaliacao || "")}</div>
     <div class="soap-bloco P" style="margin-top:8px"><b>P</b> ${esc(at.plano || "—")}</div>
     <p style="margin-top:10px"><b>Prescrição:</b><br>${presc}</p>
+    <div id="va-imp"></div>
   </div>`);
-  const bd = el('<div style="margin-top:8px"></div>'); bd.appendChild(botoesDoc(id, "resumo", "Resumo"));
-  w.appendChild(bd);
+  $("#va-imp", w).appendChild(botoesImpressao(at));
+
+  if (["MEDICO", "ENFERMEIRO"].includes(user.perfil)) {
+    const dataAtendimento = (at.fim_atendimento || at.criado_em || "").slice(0, 10) || hojeInput();
+    const box = el(`<div class="panel" style="margin-top:14px;padding:12px">
+      <h3 style="margin:0 0 8px">Emitir atestado</h3>
+      <p class="muted" style="font-size:12.5px;margin:0 0 8px">
+        Para quando o paciente volta pedindo um atestado depois que o atendimento já foi finalizado.</p>
+      <div class="grid3">
+        <div><label class="fld">Tipo</label><select id="va_tipo">
+          <option value="COMPARECIMENTO">Comparecimento</option><option value="AFASTAMENTO">Afastamento</option></select></div>
+        <div><label class="fld">Dias de afastamento</label><input id="va_dias" type="number"/></div>
+        <div><label class="fld">CID (opcional)</label><input id="va_cid"/></div>
+        <div><label class="fld">Data início</label><input id="va_ini" type="date" value="${dataAtendimento}"/></div>
+        <div class="full"><button class="btn" id="va_add">Emitir atestado</button></div>
+      </div>
+    </div>`);
+    w.appendChild(box);
+    $("#va_add", box).onclick = async () => {
+      const body = {
+        tipo: $("#va_tipo", box).value,
+        dias_afastamento: $("#va_dias", box).value ? Number($("#va_dias", box).value) : null,
+        cid: $("#va_cid", box).value || null,
+        data_inicio: $("#va_ini", box).value || null,
+      };
+      try {
+        await api(`/atendimentos/${id}/atestados`, { method: "POST", body: JSON.stringify(body) });
+        toast("Atestado emitido");
+        closeModal();
+        verAtendimento(id);
+      } catch (e) { toast(e.message, true); }
+    };
+  }
   openModal("Atendimento anterior", w);
 }
 

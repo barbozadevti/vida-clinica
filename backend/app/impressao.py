@@ -118,16 +118,36 @@ def _caixa(titulo, conteudo, cls="") -> str:
 def render(tipo: str, at: Atendimento, autoprint: bool = True) -> str:
     tipo = tipo.lower()
 
-    if tipo == "receita":
-        if not at.prescricoes:
-            raise ValueError("Nenhum medicamento prescrito neste atendimento")
+    if tipo in ("receita", "receita-simples", "receita-controle"):
+        # Onda de correções: receita simples e receita de controle especial
+        # (Portaria SVS/MS 344/98 — psicotrópicos, entorpecentes etc.) não
+        # podem sair no mesmo papel; por isso viraram documentos separados.
+        # "receita" (sem sufixo) é mantido por compatibilidade e imprime tudo
+        # junto, como antes.
+        if tipo == "receita-simples":
+            itens_p = [p for p in at.prescricoes if not p.controle_especial]
+        elif tipo == "receita-controle":
+            itens_p = [p for p in at.prescricoes if p.controle_especial]
+        else:
+            itens_p = list(at.prescricoes)
+        if not itens_p:
+            raise ValueError("Nenhum medicamento prescrito nessa categoria")
         itens = "".join(
             f'<li><b>{_e(p.medicamento)}</b> — {_e(p.posologia)}'
             + (f' — <i>{_e(p.quantidade)}</i>' if p.quantidade else "")
             + (" <b>(uso contínuo)</b>" if p.uso_continuo else "")
             + (f'<br><span class="small">{_e(p.observacao)}</span>' if p.observacao else "")
             + "</li>"
-            for p in at.prescricoes)
+            for p in itens_p)
+        if tipo == "receita-controle":
+            corpo = (
+                '<p style="text-align:center;font-weight:bold;margin:0 0 10px">'
+                'RECEITUÁRIO DE CONTROLE ESPECIAL — 2 VIAS (Portaria SVS/MS 344/98)</p>'
+                + _ident(at, incluir_mae=False)
+                + _caixa("Prescrição", f"<ol>{itens}</ol>", "area-lg")
+                + '<p class="small" style="margin-top:8px">1ª via — Farmácia &nbsp;|&nbsp; 2ª via — Paciente</p>'
+            )
+            return _pagina("Receituário de Controle Especial", corpo, at, autoprint)
         corpo = _ident(at, incluir_mae=False) + _caixa("Prescrição", f"<ol>{itens}</ol>", "area-lg")
         return _pagina("Receituário", corpo, at, autoprint)
 

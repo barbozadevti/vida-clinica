@@ -132,10 +132,26 @@ MEDICAMENTOS = [
     ("Amitriptilina 25 mg", "Cloridrato de amitriptilina", "comprimido", "1 comprimido à noite"),
     ("Ivermectina 6 mg", "Ivermectina", "comprimido", "conforme peso, dose única, repetir em 7 dias se indicado"),
     ("Albendazol 400 mg", "Albendazol", "comprimido", "1 comprimido em dose única"),
-    # Otorrinolaringologia
+    # Otorrinolaringologia — lista ampliada (nariz/seios, ouvido, garganta,
+    # vertigem/labirinto) pra Dra. Katia ter o catálogo completo da especialidade
     ("Budesonida spray nasal 32 mcg", "Budesonida", "spray nasal", "1 jato em cada narina 1x ao dia, uso contínuo"),
     ("Solução salina fisiológica 0,9% nasal", "Cloreto de sódio", "spray/solução nasal", "lavagem nasal 2 a 3 vezes ao dia"),
     ("Fluticasona spray nasal 50 mcg", "Furoato de fluticasona", "spray nasal", "1 jato em cada narina 1x ao dia"),
+    ("Mometasona spray nasal 50 mcg", "Furoato de mometasona", "spray nasal", "2 jatos em cada narina 1x ao dia"),
+    ("Oximetazolina spray nasal 0,05%", "Oximetazolina", "spray nasal", "2 jatos em cada narina de 12/12h, por no máximo 5 dias"),
+    ("Cetirizina 10 mg", "Dicloridrato de cetirizina", "comprimido", "1 comprimido 1x ao dia"),
+    ("Desloratadina 5 mg", "Desloratadina", "comprimido", "1 comprimido 1x ao dia"),
+    ("Fexofenadina 120 mg", "Cloridrato de fexofenadina", "comprimido", "1 comprimido 1x ao dia"),
+    ("Levofloxacino 500 mg", "Levofloxacino", "comprimido", "1 comprimido 1x ao dia por 7 a 10 dias"),
+    ("Claritromicina 500 mg", "Claritromicina", "comprimido", "1 comprimido de 12/12h por 7 dias"),
+    ("Ciprofloxacino gotas otológicas 0,3%", "Ciprofloxacino", "solução otológica", "3 a 4 gotas no ouvido afetado de 12/12h por 7 dias"),
+    ("Neomicina + Polimixina B + Hidrocortisona gotas otológicas", "Neomicina/Polimixina B/Hidrocortisona", "solução otológica", "3 a 4 gotas no ouvido afetado de 8/8h por 7 dias"),
+    ("Betaistina 24 mg", "Diclorodihidrato de betaistina", "comprimido", "1 comprimido de 12/12h, uso contínuo"),
+    ("Dimenidrinato 50 mg", "Dimenidrinato", "comprimido", "1 comprimido de 6/6h se tontura/vertigem"),
+    ("Flunarizina 10 mg", "Flunarizina", "comprimido", "1 comprimido à noite, uso contínuo"),
+    ("Ambroxol 30 mg", "Cloridrato de ambroxol", "comprimido", "1 comprimido de 8/8h"),
+    ("N-acetilcisteína 600 mg", "N-acetilcisteína", "comprimido efervescente", "1 comprimido 1x ao dia"),
+    ("Benzocaína + Cetilpiridínio pastilhas", "Benzocaína/Cloreto de cetilpiridínio", "pastilha", "1 pastilha de 4/4h se dor de garganta"),
 ]
 
 # ── Exames (SIA/SUS mais pedidos na APS) ──
@@ -179,4 +195,8 @@ EXAMES = [
     ("Tomografia computadorizada dos seios da face", "TC de seios paranasais"),
     ("Raio-X de seios da face", "RX de cavum / seios paranasais"),
     ("Cultura de secreção de orofaringe", "Swab de garganta"),
+    ("Prova calórica", "Exame vestibular — parte da vectoeletronistagmografia"),
+    ("Tomografia computadorizada dos ossos temporais/mastoide", "TC de mastoide"),
+    ("Ressonância magnética dos ossos temporais", None),
+    ("Laringoscopia indireta", None),
 ]

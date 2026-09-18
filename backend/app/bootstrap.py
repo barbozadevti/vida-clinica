@@ -424,14 +424,21 @@ def _seed_otorrino(db) -> None:
     """Acrescenta a especialista em otorrinolaringologia — ao contrário de
     _seed_demo, roda toda vez (idempotente pelo e-mail) para não exigir reset
     do banco em quem já estava usando o sistema."""
-    if db.scalar(select(Usuario).where(Usuario.email == "otorrino@ubs.local")):
+    # e-mail antigo (genérico, "otorrino@") -> nome dela de verdade, sem
+    # recriar o usuário (mantém senha, histórico de atendimentos etc.)
+    antigo = db.scalar(select(Usuario).where(Usuario.email == "otorrino@ubs.local"))
+    if antigo and not db.scalar(select(Usuario).where(Usuario.email == "katia@ubs.local")):
+        antigo.email = "katia@ubs.local"
+        db.commit()
+
+    if db.scalar(select(Usuario).where(Usuario.email == "katia@ubs.local")):
         return
     centro = db.scalar(select(Unidade).where(Unidade.nome.like("%Centro%")))
     recep = db.scalar(select(Usuario).where(Usuario.perfil == "RECEPCAO", Usuario.unidade_id == (centro.id if centro else None)))
     if not centro or not recep:
         return  # banco ainda nem foi inicializado — _seed_demo cuida do resto no próximo start
 
-    katia = Usuario(nome="Dra. Katia de Mello Portinho", email="otorrino@ubs.local",
+    katia = Usuario(nome="Dra. Katia de Mello Portinho", email="katia@ubs.local",
                     senha_hash=hash_senha("123456"), perfil="MEDICO",
                     conselho="CRM 45210-ES", cbo="225151", cns="700000000000004",
                     unidade_id=centro.id)
@@ -538,6 +545,7 @@ _MIGRACOES = [
     "ALTER TABLE catalogo_exames ALTER COLUMN nome TYPE TEXT",
     "ALTER TABLE catalogo_exames ALTER COLUMN sinonimia TYPE TEXT",
     "ALTER TABLE atendimento_problemas ALTER COLUMN codigo DROP NOT NULL",
+    "ALTER TABLE prescricoes ADD COLUMN IF NOT EXISTS controle_especial BOOLEAN NOT NULL DEFAULT false",
 ]
 
 

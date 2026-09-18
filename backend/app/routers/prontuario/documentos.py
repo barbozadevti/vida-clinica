@@ -42,6 +42,21 @@ def _atend_editavel(db: Session, aid: str, usuario: Usuario) -> Atendimento:
     return at
 
 
+def _atend_para_documento_avulso(db: Session, aid: str, usuario: Usuario) -> Atendimento:
+    """Mais permissivo que _atend_editavel: um atendimento já finalizado e
+    assinado continua podendo emitir documento administrativo avulso (ex.:
+    o paciente volta pedindo um atestado que esqueceu de solicitar na hora).
+    O prontuário em si (SOAP, diagnóstico, desfecho) continua imutável — só
+    essa emissão pontual é liberada, e sem a trava de "outro profissional",
+    já que quem atende o pedido na recepção pode não ser o mesmo médico."""
+    at = db.get(Atendimento, aid)
+    if not at:
+        raise HTTPException(404, "Atendimento não encontrado")
+    if at.status == "FINALIZADO" or at.assinado:
+        return at
+    return _atend_editavel(db, aid, usuario)
+
+
 # ─────────── Prescrição de medicamentos ───────────
 @router.post("/{aid}/prescricoes", response_model=PrescricaoOut, status_code=201)
 def prescrever(aid: str, dados: PrescricaoIn, usuario: Usuario = Depends(_CLINICO),
@@ -76,7 +91,7 @@ def remover_prescricao(aid: str, pid: str, usuario: Usuario = Depends(_CLINICO),
 @router.post("/{aid}/atestados", response_model=AtestadoOut, status_code=201)
 def emitir_atestado(aid: str, dados: AtestadoIn, usuario: Usuario = Depends(_CLINICO),
                     db: Session = Depends(get_db)):
-    at = _atend_editavel(db, aid, usuario)
+    at = _atend_para_documento_avulso(db, aid, usuario)
     texto = dados.texto
     if not texto:
         nome = at.cidadao.nome_social or at.cidadao.nome_completo
