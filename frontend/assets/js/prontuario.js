@@ -4,14 +4,19 @@
 // Depende dos utilitários definidos em core.js.
 // ═════════════════════════════════════════════════════════════
 
-// abre o documento numa aba nova e manda imprimir
-async function imprimir(atId, tipo) {
-  try {
-    const { html } = await api(`/atendimentos/${atId}/documento/${tipo}`);
-    const w = window.open("", "_blank");
-    if (!w) return toast("Permita pop-ups para imprimir", true);
-    w.document.open(); w.document.write(html); w.document.close();
-  } catch (e) { toast(e.message, true); }
+// abre o documento numa aba nova e manda imprimir — sem fechar/perder a
+// tela do atendimento em andamento (ex.: o médico está no meio da consulta
+// e precisa emitir um atestado ou ver um documento sem sair da tela atual).
+// window.open() precisa ser chamado SÍNCRONO, direto no clique do usuário —
+// se esperar o fetch (await) antes de abrir, o navegador entende que não
+// foi um clique real e bloqueia a aba como pop-up.
+function imprimir(atId, tipo) {
+  const w = window.open("", "_blank");
+  if (!w) return toast("Permita pop-ups para imprimir", true);
+  w.document.write('<p style="font:14px sans-serif;padding:20px">Carregando documento…</p>');
+  api(`/atendimentos/${atId}/documento/${tipo}`)
+    .then(({ html }) => { w.document.open(); w.document.write(html); w.document.close(); })
+    .catch((e) => { w.close(); toast(e.message, true); });
 }
 
 // baixa o PDF do documento
