@@ -192,6 +192,11 @@ class FilaIn(BaseModel):
     motivo: str | None = None
     tipo: str = "CONSULTA"
     classificacao_risco: str | None = None
+    profissional_id: uuid.UUID | None = None  # "quero ser atendido pelo Dr./Dra. X"
+
+
+class TrocarProfissionalIn(BaseModel):
+    profissional_id: uuid.UUID | None = None  # null = tira a preferência (qualquer um atende)
 
 
 class AcolhimentoIn(BaseModel):

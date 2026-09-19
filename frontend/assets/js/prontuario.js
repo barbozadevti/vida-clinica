@@ -46,19 +46,22 @@ views.fila = async () => {
       ${recep ? '<button class="btn" id="add">+ Adicionar à fila</button>' : ""}</div>
     <div class="panel" id="lista"></div>`;
   const carregar = async () => {
-    const fila = await api("/fila");
+    const [fila, profs] = await Promise.all([api("/fila"), recep ? api("/usuarios").catch(() => []) : []]);
     const box = $("#lista"); box.innerHTML = "";
     if (!fila.length) return (box.innerHTML = '<p class="empty">Ninguém aguardando atendimento.</p>');
     const t = el(`<table><thead><tr><th>Risco</th><th>Paciente</th><th>Idade</th><th>Motivo / queixa</th><th>Acolh.</th><th>Status</th><th>Chegada</th><th></th></tr></thead><tbody></tbody></table>`);
     fila.forEach((a) => {
       const c = a.cidadao || {};
+      const rotuloProf = a.profissional
+        ? `<br><span class='muted'>${a.status === "AGUARDANDO" ? "direcionado: " : ""}${esc(a.profissional.nome)}</span>`
+        : "";
       const tr = el(`<tr>
         <td>${risco(a.classificacao_risco) || '<span class="badge">sem risco</span>'}</td>
         <td><b>${esc(c.nome_social || c.nome_completo)}</b></td>
         <td>${c.idade ?? "-"}${c.sexo ? " · " + c.sexo : ""}</td>
         <td>${esc(a.motivo || "-")}</td>
         <td>${a.acolhido_em ? "✔️" : '<span class="muted">—</span>'}</td>
-        <td>${stBadge(a.status)}${a.profissional ? "<br><span class='muted'>" + esc(a.profissional.nome) + "</span>" : ""}</td>
+        <td>${stBadge(a.status)}${rotuloProf}</td>
         <td>${fmtDT(a.criado_em)}</td>
         <td class="row-actions"></td></tr>`);
       const acts = $(".row-actions", tr);
@@ -66,6 +69,11 @@ views.fila = async () => {
         const ac = el(`<button class="btn small sec">${a.acolhido_em ? "Rever acolhimento" : "Acolhimento"}</button>`);
         ac.onclick = () => acolhimentoForm(a, carregar);
         acts.appendChild(ac);
+      }
+      if (recep && a.status === "AGUARDANDO") {
+        const tm = el('<button class="btn small sec">Trocar médico</button>');
+        tm.onclick = () => trocarProfissionalForm(a, profs, carregar);
+        acts.appendChild(tm);
       }
       if (clinico) {
         const b = el(`<button class="btn small">${a.status === "EM_ATENDIMENTO" ? "Continuar" : "Atender"}</button>`);
@@ -89,18 +97,40 @@ views.fila = async () => {
 };
 
 async function filaForm(reload) {
-  const cids = await api("/cidadaos");
+  const [cids, profs] = await Promise.all([api("/cidadaos"), api("/usuarios").catch(() => [])]);
+  const clinicos = profs.filter((u) => ["MEDICO", "ENFERMEIRO"].includes(u.perfil) && u.ativo);
   formModal({
     title: "Adicionar paciente à fila",
     fields: [
       { name: "cidadao_id", label: "Paciente", required: true, type: "select", full: true,
         options: cids.map((c) => ({ value: c.id, label: `${c.nome_completo}${c.cpf ? " — " + c.cpf : ""}` })) },
+      { name: "profissional_id", label: "Profissional preferido (opcional)", type: "select", full: true,
+        options: [{ value: "", label: "— qualquer um disponível —" }, ...clinicos.map((u) => ({ value: u.id, label: `${u.nome} (${u.perfil})` }))] },
       { name: "tipo", label: "Tipo", type: "select", options: ["CONSULTA", "RETORNO", "URGENCIA", "PROCEDIMENTO", "TELECONSULTA"].map((v) => ({ value: v, label: v })) },
       { name: "classificacao_risco", label: "Classificação de risco (opcional — a enfermagem pode fazer)", type: "select", full: true,
         options: [{ value: "", label: "— será classificado no acolhimento —" }, ...["AZUL", "VERDE", "AMARELO", "LARANJA", "VERMELHO"].map((v) => ({ value: v, label: v }))] },
       { name: "motivo", label: "Motivo / queixa", type: "textarea", full: true },
     ],
-    onSubmit: async (d) => { await api("/fila", { method: "POST", body: JSON.stringify(d) }); toast("Adicionado à fila"); reload(); },
+    onSubmit: async (d) => {
+      if (!d.profissional_id) d.profissional_id = null;
+      await api("/fila", { method: "POST", body: JSON.stringify(d) }); toast("Adicionado à fila"); reload();
+    },
+  });
+}
+
+function trocarProfissionalForm(a, profs, reload) {
+  const clinicos = profs.filter((u) => ["MEDICO", "ENFERMEIRO"].includes(u.perfil) && u.ativo);
+  formModal({
+    title: "Trocar médico — " + (a.cidadao.nome_social || a.cidadao.nome_completo),
+    values: { profissional_id: a.profissional_id || "" },
+    fields: [
+      { name: "profissional_id", label: "Direcionar para", type: "select", full: true,
+        options: [{ value: "", label: "— qualquer um disponível —" }, ...clinicos.map((u) => ({ value: u.id, label: `${u.nome} (${u.perfil})` }))] },
+    ],
+    onSubmit: async (d) => {
+      await api(`/fila/${a.id}/profissional`, { method: "POST", body: JSON.stringify({ profissional_id: d.profissional_id || null }) });
+      toast("Profissional atualizado"); reload();
+    },
   });
 }
 

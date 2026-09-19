@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...models import Atendimento, Cidadao, Medicao, Usuario
-from ...schemas import AcolhimentoIn, AtendimentoOut, AtendimentoResumo, FilaIn
+from ...schemas import AcolhimentoIn, AtendimentoOut, AtendimentoResumo, FilaIn, TrocarProfissionalIn
 from ...security import exigir_perfis, usuario_atual
 from ...util import com_vitais
 
@@ -28,7 +28,7 @@ def listar_fila(usuario: Usuario = Depends(usuario_atual), db: Session = Depends
     Multiclínica: quem não é ADMIN e tem unidade definida só vê a fila da
     própria unidade (atendimentos sem unidade definida — legado — continuam
     visíveis a todos, pra não sumir dado antigo)."""
-    inicio_dia = datetime.combine(datetime.now(timezone.utc).date(), time.min)
+    inicio_dia = datetime.combine(datetime.now(timezone.utc).date(), time.min, tzinfo=timezone.utc)
     stmt = select(Atendimento).where(
         Atendimento.status.in_(["AGUARDANDO", "EM_ATENDIMENTO"]),
         Atendimento.criado_em >= inicio_dia,
@@ -62,6 +62,10 @@ def adicionar(
     )
     if ja:
         raise HTTPException(409, "Cidadão já está na fila de atendimento")
+    if dados.profissional_id and not db.scalar(
+        select(Usuario).where(Usuario.id == dados.profissional_id, Usuario.perfil.in_(["MEDICO", "ENFERMEIRO"]))
+    ):
+        raise HTTPException(400, "Profissional inválido")
     at = Atendimento(
         cidadao_id=dados.cidadao_id,
         criado_por_id=usuario.id,
@@ -70,8 +74,34 @@ def adicionar(
         tipo=dados.tipo,
         motivo=dados.motivo,
         classificacao_risco=dados.classificacao_risco,
+        profissional_id=dados.profissional_id,
     )
     db.add(at)
+    db.commit()
+    db.refresh(at)
+    return at
+
+
+@router.post("/{atendimento_id}/profissional", response_model=AtendimentoResumo)
+def trocar_profissional(
+    atendimento_id: str,
+    dados: TrocarProfissionalIn,
+    usuario: Usuario = Depends(exigir_perfis("RECEPCAO", "ENFERMEIRO")),
+    db: Session = Depends(get_db),
+):
+    """"Trocar de médico" — define ou muda para qual profissional este
+    atendimento da fila é direcionado, antes de alguém clicar Atender (ex.:
+    o paciente pede pra ser visto pela Dra. Katia em vez do Dr. Victor)."""
+    at = db.get(Atendimento, atendimento_id)
+    if not at:
+        raise HTTPException(404, "Atendimento não encontrado")
+    if at.status != "AGUARDANDO":
+        raise HTTPException(409, "Só é possível trocar o profissional enquanto aguarda atendimento")
+    if dados.profissional_id and not db.scalar(
+        select(Usuario).where(Usuario.id == dados.profissional_id, Usuario.perfil.in_(["MEDICO", "ENFERMEIRO"]))
+    ):
+        raise HTTPException(400, "Profissional inválido")
+    at.profissional_id = dados.profissional_id
     db.commit()
     db.refresh(at)
     return at
@@ -132,6 +162,12 @@ def atender(
     if at.status == "EM_ATENDIMENTO" and at.profissional_id and str(at.profissional_id) != str(usuario.id):
         raise HTTPException(409, "Atendimento já está aberto por outro profissional")
     if at.status == "AGUARDANDO":
+        # se alguém já direcionou esse atendimento para um profissional
+        # específico ("trocar de médico"), só ele (ou o ADMIN) pode atender
+        if (at.profissional_id and str(at.profissional_id) != str(usuario.id)
+                and usuario.perfil != "ADMIN"):
+            nome = at.profissional.nome if at.profissional else "outro profissional"
+            raise HTTPException(409, f"Este atendimento foi direcionado para {nome}")
         at.status = "EM_ATENDIMENTO"
         at.profissional_id = usuario.id
         at.inicio_atendimento = datetime.now(timezone.utc)
