@@ -95,7 +95,8 @@ def enviar_para_fila(aid: str, usuario: Usuario = Depends(exigir_perfis("RECEPCA
     if ja:
         raise HTTPException(409, "Cidadão já está na fila de atendimento")
     at = Atendimento(cidadao_id=ag.cidadao_id, criado_por_id=usuario.id, status="AGUARDANDO",
-                      unidade_id=ag.unidade_id, tipo=ag.tipo, motivo=ag.observacao or "Consulta agendada")
+                      unidade_id=ag.unidade_id, tipo=ag.tipo, motivo=ag.observacao or "Consulta agendada",
+                      profissional_id=ag.profissional_id)
     db.add(at)
     db.flush()
     ag.atendimento_id = at.id
