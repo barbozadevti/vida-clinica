@@ -4,22 +4,25 @@
 // Depende dos utilitários definidos em core.js.
 // ═════════════════════════════════════════════════════════════
 
-// recibo de pagamento (Financeiro)
-async function imprimirRecibo(cid) {
-  try {
-    const { html } = await api(`/financeiro/cobrancas/${cid}/recibo`);
-    const w = window.open("", "_blank");
-    if (!w) return toast("Permita pop-ups para imprimir", true);
-    w.document.open(); w.document.write(html); w.document.close();
-  } catch (e) { toast(e.message, true); }
+// nota fiscal de serviço (Financeiro) — substitui o recibo: por lei, todo
+// procedimento/consulta precisa de nota fiscal, PF ou PJ. window.open()
+// síncrono no clique (mesma correção do imprimir() do atendimento), senão
+// o navegador bloqueia a aba por não reconhecer mais o clique original.
+function imprimirNotaFiscal(cid) {
+  const w = window.open("", "_blank");
+  if (!w) return toast("Permita pop-ups para imprimir", true);
+  w.document.write('<p style="font:14px sans-serif;padding:20px">Emitindo nota fiscal…</p>');
+  api(`/financeiro/cobrancas/${cid}/nota-fiscal`)
+    .then(({ html }) => { w.document.open(); w.document.write(html); w.document.close(); })
+    .catch((e) => { w.close(); toast(e.message, true); });
 }
-async function baixarReciboPdf(cid) {
+async function baixarNotaFiscalPdf(cid) {
   try {
-    const r = await fetch(`${API}/financeiro/cobrancas/${cid}/recibo.pdf`, { headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(`${API}/financeiro/cobrancas/${cid}/nota-fiscal.pdf`, { headers: { Authorization: `Bearer ${token}` } });
     if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
     const blob = await r.blob();
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "recibo.pdf"; a.click();
+    a.href = URL.createObjectURL(blob); a.download = "nota-fiscal.pdf"; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   } catch (e) { toast(e.message, true); }
 }
@@ -198,9 +201,10 @@ views.convenios = async () => {
     const l = await api("/convenios");
     const box = $("#cv-lista"); box.innerHTML = "";
     if (!l.length) return (box.innerHTML = '<p class="empty">Nenhum convênio cadastrado.</p>');
-    const t = el(`<table><thead><tr><th>Nome</th><th>Registro ANS</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody></tbody></table>`);
+    const t = el(`<table><thead><tr><th>Nome</th><th>Registro ANS</th><th>CNPJ</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody></tbody></table>`);
     l.forEach((c) => {
       const tr = el(`<tr><td><b>${esc(c.nome)}</b></td><td>${esc(c.registro_ans || "-")}</td>
+        <td>${esc(c.cnpj || "-")}</td>
         <td>${esc(c.telefone || "-")}</td><td>${c.ativo ? "sim" : "não"}</td><td class="row-actions"></td></tr>`);
       if (gerencia) { const e = el('<button class="btn small sec">Editar</button>'); e.onclick = () => convenioForm(c, carregar); $(".row-actions", tr).appendChild(e); }
       t.querySelector("tbody").appendChild(tr);
@@ -217,6 +221,7 @@ function convenioForm(c, reload) {
     fields: [
       { name: "nome", label: "Nome", required: true, full: true },
       { name: "registro_ans", label: "Registro ANS" },
+      { name: "cnpj", label: "CNPJ (pessoa jurídica, só números — usado na nota fiscal)" },
       { name: "telefone", label: "Telefone" },
       ...(c ? [{ name: "ativo", label: "Ativo", type: "select", options: [{ value: "true", label: "Sim" }, { value: "false", label: "Não" }] }] : []),
     ],
@@ -262,7 +267,8 @@ views.financeiro = async () => {
         <td>${esc(c.cidadao ? (c.cidadao.nome_social || c.cidadao.nome_completo) : "-")}</td>
         <td>${esc(c.descricao)}</td><td><b>R$ ${c.valor.toFixed(2).replace(".", ",")}</b></td>
         <td>${esc(c.forma_pagamento.replace(/_/g, " "))}${c.convenio ? "<br><span class='muted'>" + esc(c.convenio.nome) + "</span>" : ""}</td>
-        <td>${stBadge(c.status)}</td><td class="row-actions"></td></tr>`);
+        <td>${stBadge(c.status)}${c.numero_nf ? "<br><span class='muted'>NF " + esc(c.numero_nf) + "</span>" : ""}</td>
+        <td class="row-actions"></td></tr>`);
       const acts = $(".row-actions", tr);
       if (c.status === "PENDENTE") {
         const p = el('<button class="btn small">Marcar pago</button>');
@@ -272,8 +278,8 @@ views.financeiro = async () => {
         acts.append(p, x);
       }
       if (c.status === "PAGO") {
-        const r1 = el('<button class="btn small sec">🖨️ Recibo</button>'); r1.onclick = () => imprimirRecibo(c.id);
-        const r2 = el('<button class="btn small sec">PDF</button>'); r2.onclick = () => baixarReciboPdf(c.id);
+        const r1 = el(`<button class="btn small sec">🖨️ ${c.numero_nf ? "Nota Fiscal" : "Emitir Nota Fiscal"}</button>`); r1.onclick = () => imprimirNotaFiscal(c.id);
+        const r2 = el('<button class="btn small sec">PDF</button>'); r2.onclick = () => baixarNotaFiscalPdf(c.id);
         acts.append(r1, r2);
       }
       if (c.forma_pagamento === "CONVENIO" && c.convenio) {
@@ -310,15 +316,16 @@ async function cobrancaForm(reload) {
 }
 
 // Guia TISS simplificada (Onda 5) — impressão/PDF de cobranças por convênio
-async function imprimirGuiaTiss(cid) {
-  try {
-    const r = await fetch(`${API}/financeiro/cobrancas/${cid}/guia-tiss.pdf`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  } catch (e) { toast(e.message, true); }
+function imprimirGuiaTiss(cid) {
+  const w = window.open("", "_blank");
+  if (!w) return toast("Permita pop-ups para imprimir", true);
+  fetch(`${API}/financeiro/cobrancas/${cid}/guia-tiss.pdf`, { headers: { Authorization: `Bearer ${token}` } })
+    .then(async (r) => {
+      if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || `Erro ${r.status}`); }
+      const blob = await r.blob();
+      w.location.href = URL.createObjectURL(blob);
+    })
+    .catch((e) => { w.close(); toast(e.message, true); });
 }
 
 // ═════════ ESTOQUE ═════════

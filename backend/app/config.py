@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     ubs_nome: str = "Vida+ Clínica"
     ubs_linha2: str = "Clínica Médica Multidisciplinar"
     ubs_endereco: str = "Rua da Saúde, 100 - Centro | Tel. (27) 3000-0000"
+    # CNPJ padrão (prestador) usado na nota fiscal quando a unidade do
+    # atendimento não tem um CNPJ próprio cadastrado
+    ubs_cnpj: str = "12345678000190"
 
     @field_validator("database_url", mode="before")
     @classmethod

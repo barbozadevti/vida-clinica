@@ -34,6 +34,7 @@ class UnidadeIn(BaseModel):
     nome: str = Field(min_length=1)
     endereco: str | None = None
     telefone: str | None = None
+    cnpj: str | None = Field(default=None, max_length=14)
     ativo: bool = True
 
 
@@ -119,6 +120,7 @@ class CidadaoUpdate(BaseModel):
 class ConvenioResumo(ORM):
     id: uuid.UUID
     nome: str
+    cnpj: str | None = None
 
 
 class CidadaoOut(CidadaoBase, ORM):
@@ -422,6 +424,7 @@ class ConvenioIn(BaseModel):
     nome: str = Field(min_length=1)
     registro_ans: str | None = None
     telefone: str | None = None
+    cnpj: str | None = Field(default=None, max_length=14)
     ativo: bool = True
 
 
@@ -477,6 +480,8 @@ class CobrancaOut(ORM):
     criado_em: datetime
     pago_em: datetime | None = None
     atendimento_id: uuid.UUID | None = None
+    numero_nf: str | None = None
+    nf_emitida_em: datetime | None = None
     cidadao: CidadaoResumo | None = None
     convenio: ConvenioResumo | None = None
 

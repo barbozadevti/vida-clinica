@@ -57,9 +57,9 @@ def _seed_convenios(db) -> dict[str, Convenio]:
     if db.scalar(select(Convenio).limit(1)):
         return {c.nome: c for c in db.scalars(select(Convenio))}
     convenios = [
-        Convenio(nome="Unimed Regional", registro_ans="123456"),
-        Convenio(nome="Bradesco Saúde", registro_ans="234567"),
-        Convenio(nome="SulAmérica Saúde", registro_ans="345678"),
+        Convenio(nome="Unimed Regional", registro_ans="123456", cnpj="11222333000181"),
+        Convenio(nome="Bradesco Saúde", registro_ans="234567", cnpj="22333444000162"),
+        Convenio(nome="SulAmérica Saúde", registro_ans="345678", cnpj="33444555000143"),
     ]
     db.add_all(convenios)
     db.commit()
@@ -71,9 +71,9 @@ def _seed_unidades(db) -> dict[str, Unidade]:
         return {u.nome: u for u in db.scalars(select(Unidade))}
     unidades = [
         Unidade(nome="Vida+ Clínica — Unidade Centro", endereco="Rua da Saúde, 100 - Centro",
-               telefone="(27) 3000-0000"),
+               telefone="(27) 3000-0000", cnpj="12345678000190"),
         Unidade(nome="Vida+ Clínica — Unidade Sul", endereco="Av. Sul, 500 - Bairro Sul",
-               telefone="(27) 3000-0001"),
+               telefone="(27) 3000-0001", cnpj="12345678000271"),
     ]
     db.add_all(unidades)
     db.commit()
@@ -486,6 +486,31 @@ def _seed_otorrino(db) -> None:
     print("[bootstrap] Dra. Katia de Mello Portinho (otorrinolaringologia) adicionada")
 
 
+def _seed_cnpjs(db) -> None:
+    """Preenche o CNPJ de unidades/convênios que já existiam antes da nota
+    fiscal (Onda 6) e por isso ficaram sem esse dado — roda toda vez
+    (idempotente, só toca quem está com cnpj NULL) igual _seed_otorrino,
+    pra quem já vinha usando o sistema não precisar resetar o banco."""
+    cnpjs_unidade = {
+        "Vida+ Clínica — Unidade Centro": "12345678000190",
+        "Vida+ Clínica — Unidade Sul": "12345678000271",
+    }
+    for nome, cnpj in cnpjs_unidade.items():
+        u = db.scalar(select(Unidade).where(Unidade.nome == nome, Unidade.cnpj.is_(None)))
+        if u:
+            u.cnpj = cnpj
+    cnpjs_convenio = {
+        "Unimed Regional": "11222333000181",
+        "Bradesco Saúde": "22333444000162",
+        "SulAmérica Saúde": "33444555000143",
+    }
+    for nome, cnpj in cnpjs_convenio.items():
+        c = db.scalar(select(Convenio).where(Convenio.nome == nome, Convenio.cnpj.is_(None)))
+        if c:
+            c.cnpj = cnpj
+    db.commit()
+
+
 # colunas adicionadas após a criação inicial (migração leve, Postgres)
 _MIGRACOES = [
     "ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS acolhimento TEXT",
@@ -546,6 +571,12 @@ _MIGRACOES = [
     "ALTER TABLE catalogo_exames ALTER COLUMN sinonimia TYPE TEXT",
     "ALTER TABLE atendimento_problemas ALTER COLUMN codigo DROP NOT NULL",
     "ALTER TABLE prescricoes ADD COLUMN IF NOT EXISTS controle_especial BOOLEAN NOT NULL DEFAULT false",
+    # Nota fiscal (substitui o recibo) — exigência legal de emitir NF para
+    # todo procedimento/consulta, seja pessoa física ou jurídica.
+    "ALTER TABLE unidades ADD COLUMN IF NOT EXISTS cnpj VARCHAR(14)",
+    "ALTER TABLE convenios ADD COLUMN IF NOT EXISTS cnpj VARCHAR(14)",
+    "ALTER TABLE cobrancas ADD COLUMN IF NOT EXISTS numero_nf TEXT",
+    "ALTER TABLE cobrancas ADD COLUMN IF NOT EXISTS nf_emitida_em TIMESTAMPTZ",
 ]
 
 
@@ -566,3 +597,4 @@ def inicializar() -> None:
         _seed_estoque(db)
         _seed_demo(db)
         _seed_otorrino(db)
+        _seed_cnpjs(db)

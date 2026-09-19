@@ -28,6 +28,9 @@ class Unidade(Base):
     nome: Mapped[str] = mapped_column(Text, unique=True)
     endereco: Mapped[str | None] = mapped_column(Text)
     telefone: Mapped[str | None] = mapped_column(Text)
+    # CNPJ é tamanho fixo (14 dígitos) igual CPF/CNS — usado como prestador
+    # de serviço na nota fiscal emitida pelos atendimentos desta unidade.
+    cnpj: Mapped[str | None] = mapped_column(String(14))
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
@@ -59,6 +62,10 @@ class Convenio(Base):
     nome: Mapped[str] = mapped_column(Text, unique=True)
     registro_ans: Mapped[str | None] = mapped_column(String(30))
     telefone: Mapped[str | None] = mapped_column(Text)
+    # CNPJ da operadora (pessoa jurídica) — quando presente, a nota fiscal
+    # da cobrança feita por este convênio é emitida para o convênio (PJ) em
+    # vez do paciente (PF).
+    cnpj: Mapped[str | None] = mapped_column(String(14))
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
@@ -381,6 +388,11 @@ class Cobranca(Base):
     status: Mapped[str] = mapped_column(String(12), default="PENDENTE")  # PENDENTE|PAGO|CANCELADO
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     pago_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # nota fiscal (substitui o recibo — exigência legal de emitir NF para
+    # todo atendimento/procedimento): número sequencial atribuído uma única
+    # vez, na primeira emissão; reimpressões reusam o mesmo número.
+    numero_nf: Mapped[str | None] = mapped_column(Text)
+    nf_emitida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     cidadao: Mapped["Cidadao"] = relationship(lazy="joined")
     convenio: Mapped["Convenio | None"] = relationship(lazy="joined")

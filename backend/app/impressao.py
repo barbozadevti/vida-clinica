@@ -240,39 +240,76 @@ def _valor_fmt(v: float) -> str:
     return f"R$ {v:,.2f}".replace(",", "§").replace(".", ",").replace("§", ".")
 
 
-def render_recibo(c, autoprint: bool = True) -> str:
+def _cnpj_fmt(v: str | None) -> str:
+    if not v or len(v) != 14:
+        return v or "—"
+    return f"{v[0:2]}.{v[2:5]}.{v[5:8]}/{v[8:12]}-{v[12:14]}"
+
+
+def _cpf_fmt(v: str | None) -> str:
+    if not v or len(v) != 11:
+        return v or "—"
+    return f"{v[0:3]}.{v[3:6]}.{v[6:9]}-{v[9:11]}"
+
+
+def _tomador_nf(c) -> str:
+    """Define o tomador do serviço na nota fiscal: pessoa jurídica quando a
+    cobrança é de convênio com CNPJ cadastrado, senão pessoa física (o
+    próprio paciente, pelo CPF) — por lei toda consulta/procedimento emite
+    nota fiscal, seja para PF ou PJ."""
     cid = c.cidadao
+    if c.convenio and c.convenio.cnpj:
+        return f"""<table class="box"><tr>
+          <td><span class="lbl">Tomador do serviço (Pessoa Jurídica)</span>
+            <span class="val">{_e(c.convenio.nome)}</span></td>
+          <td style="width:35%"><span class="lbl">CNPJ</span><span class="val">{_cnpj_fmt(c.convenio.cnpj)}</span></td>
+        </tr>
+        <tr><td colspan="2"><span class="lbl">Paciente atendido</span>
+          <span class="val">{_e(cid.nome_social or cid.nome_completo)}</span></td></tr></table>"""
+    return f"""<table class="box"><tr>
+      <td><span class="lbl">Tomador do serviço (Pessoa Física)</span>
+        <span class="val">{_e(cid.nome_social or cid.nome_completo)}</span></td>
+      <td style="width:35%"><span class="lbl">CPF</span><span class="val">{_cpf_fmt(cid.cpf)}</span></td>
+    </tr></table>"""
+
+
+def render_nota_fiscal(c, autoprint: bool = True) -> str:
+    if not c.numero_nf:
+        raise ValueError("Nota fiscal ainda não emitida para esta cobrança")
+    unidade = c.atendimento.unidade if c.atendimento else None
+    prestador_cnpj = (unidade.cnpj if unidade and unidade.cnpj else settings.ubs_cnpj)
     forma = c.forma_pagamento.replace("_", " ").title()
-    convenio = f" — {_e(c.convenio.nome)}" if c.convenio else ""
-    corpo = f"""{_ident_simples(cid)}
+    emitida = c.nf_emitida_em.strftime("%d/%m/%Y %H:%M") if c.nf_emitida_em else "—"
+    corpo = f"""{_tomador_nf(c)}
     <table class="box"><tr>
-      <td style="width:34%"><span class="lbl">Valor recebido</span><span class="val"><b>{_valor_fmt(c.valor)}</b></span></td>
-      <td style="width:33%"><span class="lbl">Forma de pagamento</span><span class="val">{_e(forma)}{convenio}</span></td>
+      <td style="width:34%"><span class="lbl">Valor do serviço</span><span class="val"><b>{_valor_fmt(c.valor)}</b></span></td>
+      <td style="width:33%"><span class="lbl">Forma de pagamento</span><span class="val">{_e(forma)}</span></td>
       <td><span class="lbl">Situação</span><span class="val">{_e(c.status)}</span></td>
     </tr>
-    <tr><td colspan="3"><span class="lbl">Referente a</span><span class="val">{_e(c.descricao)}</span></td></tr>
+    <tr><td colspan="3"><span class="lbl">Discriminação do serviço</span><span class="val">{_e(c.descricao)}</span></td></tr>
     </table>"""
     ap = ("<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>"
           if autoprint else "")
     return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-    <title>Recibo de Pagamento</title><style>{_CSS}</style></head><body>
-    {_cabecalho()}<h2 class="doc">Recibo de Pagamento</h2>{corpo}
-    <div class="data">{_e(_hoje_cidade())}</div>
-    <div class="assinatura"><div class="linha"></div><b>{_e(settings.ubs_nome)}</b></div>
+    <title>Nota Fiscal de Serviço {_e(c.numero_nf)}</title><style>{_CSS}</style></head><body>
+    {_cabecalho(unidade)}
+    <table class="box"><tr>
+      <td><span class="lbl">CNPJ do prestador</span><span class="val">{_cnpj_fmt(prestador_cnpj)}</span></td>
+      <td style="width:35%"><span class="lbl">Nº da nota fiscal</span><span class="val"><b>{_e(c.numero_nf)}</b></span></td>
+    </tr></table>
+    <h2 class="doc">Nota Fiscal de Serviço (simplificada)</h2>{corpo}
+    <p class="small" style="margin-top:8px">Documento interno simplificado — controla numeração sequencial e dados do
+    tomador (PF/PJ) exigidos por lei, mas não substitui a NFS-e eletrônica transmitida à prefeitura, que fica
+    fora do escopo deste sistema de demonstração.</p>
+    <div class="data">Emitida em {emitida}</div>
+    <div class="assinatura"><div class="linha"></div><b>{_e(unidade.nome if unidade else settings.ubs_nome)}</b></div>
     {ap}</body></html>"""
 
 
-def _ident_simples(cid) -> str:
-    return f"""<table class="box"><tr>
-      <td><span class="lbl">Recebemos de</span><span class="val">{_e(cid.nome_social or cid.nome_completo)}</span></td>
-      <td style="width:35%"><span class="lbl">CPF</span><span class="val">{_e(cid.cpf or "—")}</span></td>
-    </tr></table>"""
-
-
-def render_recibo_pdf(c) -> bytes:
+def render_nota_fiscal_pdf(c) -> bytes:
     from xhtml2pdf import pisa
 
-    html = render_recibo(c, autoprint=False)
+    html = render_nota_fiscal(c, autoprint=False)
     out = io.BytesIO()
     res = pisa.CreatePDF(html, dest=out, encoding="utf-8")
     if res.err:
