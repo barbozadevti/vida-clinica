@@ -205,6 +205,7 @@ const MENU = [
   { v: "relatorios", t: "Relatórios", p: ["MEDICO", "ENFERMEIRO"] },
   { v: "unidades", t: "Unidades", p: ["ADMIN"] },
   { v: "usuarios", t: "Usuários", p: ["ADMIN"] },
+  { v: "auditoria", t: "Auditoria", p: ["ADMIN"] },
 ];
 const pode = (m) => m.p === "*" || user.perfil === "ADMIN" || m.p.includes(user.perfil);
 const views = {};
@@ -428,3 +429,55 @@ async function usuarioForm(u, reload) {
     },
   });
 }
+
+// ═════════ AUDITORIA (LGPD) — Onda 7 ═════════
+// Rastreabilidade de acesso ao prontuário: quem viu/alterou o quê e quando.
+// Só o ADMIN consulta — é o próprio registro de acesso de todo mundo.
+const ACAO_LABEL = {
+  LOGIN: "Login",
+  VISUALIZOU_PACIENTE: "Visualizou paciente",
+  VISUALIZOU_ATENDIMENTO: "Visualizou atendimento",
+  EDITOU_SOAP: "Editou registro clínico (SOAP)",
+  FINALIZOU_ATENDIMENTO: "Finalizou atendimento",
+  REABRIU_ATENDIMENTO: "Reabriu atendimento",
+  EMITIU_DOCUMENTO: "Emitiu documento",
+  EMITIU_NOTA_FISCAL: "Emitiu nota fiscal",
+};
+views.auditoria = async () => {
+  const hoje = hojeInput();
+  const seteDias = new Date(Date.now() - 6 * 86400000);
+  const desde = new Date(seteDias - seteDias.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+  viewEl.innerHTML = `<div class="page-head"><h1 class="title">Auditoria</h1></div>
+    <div class="panel"><div class="toolbar">
+      <label class="fld">De <input type="date" id="au_de" value="${desde}"></label>
+      <label class="fld">Até <input type="date" id="au_ate" value="${hoje}"></label>
+      <label class="fld">Ação
+        <select id="au_acao"><option value="">Todas</option>
+          ${Object.entries(ACAO_LABEL).map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}
+        </select>
+      </label>
+      <button class="btn sec" id="au_go">Atualizar</button>
+    </div></div>
+    <div class="panel" id="au_lista"></div>`;
+  const carregar = async () => {
+    const de = $("#au_de").value, ate = $("#au_ate").value, acao = $("#au_acao").value;
+    const qs = new URLSearchParams({ de, ate, ...(acao ? { acao } : {}) });
+    const l = await api(`/auditoria?${qs}`);
+    const box = $("#au_lista"); box.innerHTML = "";
+    if (!l.length) return (box.innerHTML = '<p class="empty">Nenhum registro no período.</p>');
+    const t = el(`<table><thead><tr><th>Data/hora</th><th>Usuário</th><th>Ação</th><th>Paciente</th><th>Detalhe</th></tr></thead><tbody></tbody></table>`);
+    l.forEach((r) => {
+      const tr = el(`<tr>
+        <td>${fmtDT(r.criado_em)}</td>
+        <td>${esc(r.usuario ? r.usuario.nome : "—")}</td>
+        <td>${esc(ACAO_LABEL[r.acao] || r.acao)}</td>
+        <td>${esc(r.cidadao ? (r.cidadao.nome_social || r.cidadao.nome_completo) : "—")}</td>
+        <td class="muted">${esc(r.detalhe || "-")}</td>
+      </tr>`);
+      t.querySelector("tbody").appendChild(tr);
+    });
+    box.appendChild(t);
+  };
+  $("#au_go").onclick = carregar;
+  carregar();
+};

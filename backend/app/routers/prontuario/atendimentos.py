@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from ... import auditoria
 from ...database import get_db
 from ...models import (
     Alergia,
@@ -74,8 +75,10 @@ def listar(cidadao_id: str | None = None, _: Usuario = Depends(usuario_atual),
 
 
 @router.get("/{aid}", response_model=AtendimentoOut)
-def obter(aid: str, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
-    return com_vitais(db, _get(db, aid))
+def obter(aid: str, usuario: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+    at = _get(db, aid)
+    auditoria.registrar(db, usuario, "VISUALIZOU_ATENDIMENTO", cidadao_id=at.cidadao_id, atendimento_id=at.id)
+    return com_vitais(db, at)
 
 
 @router.post("/{aid}/reabrir", response_model=AtendimentoOut)
@@ -92,6 +95,8 @@ def reabrir(aid: str, dados: ReabrirIn, usuario: Usuario = Depends(exigir_perfis
     at.plano = (at.plano or "") + f"\n\n{obs}"
     db.commit()
     db.refresh(at)
+    auditoria.registrar(db, usuario, "REABRIU_ATENDIMENTO", cidadao_id=at.cidadao_id,
+                        atendimento_id=at.id, detalhe=dados.motivo)
     return com_vitais(db, at)
 
 
@@ -179,6 +184,7 @@ def salvar_soap(aid: str, dados: SoapIn, usuario: Usuario = Depends(_CLINICO),
                            tipo="IMC", valor=imc, unidade="kg/m²", aferido_em=agora))
     db.commit()
     db.refresh(at)
+    auditoria.registrar(db, usuario, "EDITOU_SOAP", cidadao_id=at.cidadao_id, atendimento_id=at.id)
     return com_vitais(db, at)
 
 
@@ -244,4 +250,6 @@ def finalizar(aid: str, dados: FinalizarIn, usuario: Usuario = Depends(_CLINICO)
     at.assinado_em = datetime.now(timezone.utc)
     db.commit()
     db.refresh(at)
+    auditoria.registrar(db, usuario, "FINALIZOU_ATENDIMENTO", cidadao_id=at.cidadao_id,
+                        atendimento_id=at.id, detalhe=desfecho)
     return com_vitais(db, at)

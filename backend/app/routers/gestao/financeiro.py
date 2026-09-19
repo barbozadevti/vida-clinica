@@ -5,6 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ... import auditoria
 from ...database import get_db
 from ...impressao import render_guia_tiss, render_guia_tiss_pdf, render_nota_fiscal, render_nota_fiscal_pdf
 from ...models import Cidadao, Cobranca, Usuario
@@ -99,7 +100,7 @@ def resumo(de: date_cls = Query(...), ate: date_cls = Query(...),
 
 
 @router.post("/cobrancas/{cid}/nota-fiscal", response_model=CobrancaOut)
-def emitir_nota_fiscal(cid: str, _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db)):
+def emitir_nota_fiscal(cid: str, usuario: Usuario = Depends(_GESTAO), db: Session = Depends(get_db)):
     """Emissão da nota fiscal — ação do setor financeiro/recepção, separada
     de imprimir/baixar/enviar. Por lei, todo procedimento/consulta precisa
     de nota fiscal (não pode mais ser só recibo), PF ou PJ. O número é
@@ -111,12 +112,16 @@ def emitir_nota_fiscal(cid: str, _: Usuario = Depends(_GESTAO), db: Session = De
         raise HTTPException(404, "Cobrança não encontrada")
     if c.status == "CANCELADO":
         raise HTTPException(409, "Cobrança cancelada não pode emitir nota fiscal")
+    ja_emitida = bool(c.numero_nf)
     if not c.numero_nf:
         seq = db.scalar(select(func.count()).select_from(Cobranca).where(Cobranca.numero_nf.isnot(None))) + 1
         c.numero_nf = f"{datetime.now(timezone.utc).year}/{seq:06d}"
         c.nf_emitida_em = datetime.now(timezone.utc)
         db.commit()
         db.refresh(c)
+    if not ja_emitida:
+        auditoria.registrar(db, usuario, "EMITIU_NOTA_FISCAL", cidadao_id=c.cidadao_id,
+                            detalhe=f"{c.numero_nf} — R$ {c.valor:.2f}")
     return c
 
 

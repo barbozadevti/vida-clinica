@@ -527,6 +527,16 @@ class MovimentoEstoqueOut(ORM):
     criado_em: datetime
 
 
+# ─────────── Auditoria (LGPD) ───────────
+class LogAcessoOut(ORM):
+    id: uuid.UUID
+    acao: str
+    detalhe: str | None = None
+    criado_em: datetime
+    usuario: UsuarioResumo | None = None
+    cidadao: CidadaoResumo | None = None
+
+
 # ─────────── Portal do paciente ───────────
 class PortalLoginIn(BaseModel):
     cpf: str = Field(min_length=1)

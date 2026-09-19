@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from ... import auditoria
 from ...database import get_db
 from ...models import Alergia, Cidadao, MedicamentoEmUso, Usuario
 from ...schemas import (
@@ -51,8 +52,10 @@ def criar(dados: CidadaoCreate, _: Usuario = Depends(_CADASTRO), db: Session = D
 
 
 @router.get("/{cid}", response_model=CidadaoOut)
-def obter(cid: str, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
-    return cidadao_dict(_get(db, cid))
+def obter(cid: str, usuario: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+    c = _get(db, cid)
+    auditoria.registrar(db, usuario, "VISUALIZOU_PACIENTE", cidadao_id=c.id)
+    return cidadao_dict(c)
 
 
 @router.put("/{cid}", response_model=CidadaoOut)

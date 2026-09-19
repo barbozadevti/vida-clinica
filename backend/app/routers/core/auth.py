@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ... import ratelimit
+from ... import auditoria, ratelimit
 from ...database import get_db
 from ...models import Usuario
 from ...schemas import LoginIn, TokenOut, UsuarioResumo
@@ -23,6 +23,7 @@ def _autenticar(db: Session, request: Request, email: str, senha: str) -> Usuari
     if not u.ativo:
         raise HTTPException(403, "Usuário inativo")
     ratelimit.limpar(chave_email, chave_ip)
+    auditoria.registrar(db, u, "LOGIN", detalhe=chave_ip.removeprefix("login-ip:"))
     return u
 
 

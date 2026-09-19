@@ -17,17 +17,21 @@ documento completo está publicado à parte. Resumo:
 
 - **Objetivos:** reduzir o tempo administrativo da recepção e da equipe clínica ·
   ter controle financeiro confiável do caixa do dia · garantir segurança e
-  rastreabilidade do prontuário.
+  rastreabilidade do prontuário (log de auditoria — Onda 7).
 - **Personas:** Recepção, Enfermagem, Médico(a) e Administrador(a) — os quatro
   perfis de login do sistema.
 - **MVP 1 — Prontuário digital do atendimento** (10/09): login/perfis, fila,
   acolhimento, SOAP, documentos em PDF, finalização com assinatura.
 - **MVP 2 — Fechamento financeiro do dia** (12/09): agenda, convênios,
-  financeiro com recibo em PDF, estoque com alerta.
+  financeiro com nota fiscal em PDF, estoque com alerta.
 - **Ondas 4 e 5 (16/09):** confirmação de agendamento por WhatsApp, portal do
   paciente, teleconsulta, guia TISS simplificada e multiclínica — ver seção
-  [Ondas 4 e 5](#ondas-4-e-5--próximo-incremento-validado) abaixo. App mobile
-  segue como próxima hipótese a validar.
+  [Ondas 4 a 7](#ondas-4-a-7--próximo-incremento-validado) abaixo.
+- **Onda 6 (18/09):** direcionar o atendimento a um profissional específico
+  ("trocar de médico"), nota fiscal (PF/PJ) substituindo o recibo, emissão
+  separada por setor financeiro com envio por WhatsApp/e-mail.
+- **Onda 7 (19/09):** log de auditoria (LGPD) — rastreabilidade de acesso ao
+  prontuário. App mobile segue como próxima hipótese a validar.
 
 > Projeto pessoal full-stack — modelagem de dados, API REST documentada (Swagger),
 > regras de negócio de uma clínica real (agenda, convênios, financeiro, estoque,
@@ -40,11 +44,11 @@ documento completo está publicado à parte. Resumo:
 | Módulo | O que faz |
 |---|---|
 | **Agenda** | Marcação de consultas por profissional, data e horário; confirmação, falta e cancelamento; "paciente chegou" envia direto para a fila do dia. |
-| **Atendimento do dia (fila)** | Fila ordenada por classificação de risco (Manchester); acolhimento da enfermagem com sinais vitais; o profissional clica **Atender** e abre o prontuário com os vitais já pré-preenchidos. |
+| **Atendimento do dia (fila)** | Fila ordenada por classificação de risco (Manchester); acolhimento da enfermagem com sinais vitais; a recepção pode direcionar o atendimento a um profissional específico ("trocar de médico") — só ele (ou o ADMIN) consegue **Atender**; o prontuário abre com os vitais já pré-preenchidos. |
 | **Prontuário — folha de rosto** | Alergias em destaque, medicamentos em uso, histórico de consultas e **gráficos de evolução** (PA, peso, IMC, glicemia). |
 | **Prontuário — SOAP** | Registro clínico em 4 blocos (Subjetivo/Objetivo/Avaliação/Plano) com sinais vitais estruturados e busca de diagnóstico por **CID-10 / CIAP-2**. |
 | **Documentos clínicos** | Receituário, atestado (texto gerado automaticamente), requisição de exames e guia de encaminhamento — **inclusive para avaliação cirúrgica** — todos em **PDF real**, além de impressão direta A4. |
-| **Financeiro** | Lançamento de cobranças (dinheiro, PIX, cartão débito/crédito, convênio, boleto), baixa de pagamento, **recibo em PDF**, resumo por período e por forma de pagamento. |
+| **Financeiro** | Lançamento de cobranças (dinheiro, PIX, cartão débito/crédito, convênio, boleto), baixa de pagamento, **nota fiscal de serviço em PDF** (PF ou PJ, numeração sequencial, emissão restrita ao setor financeiro/recepção) com envio por WhatsApp/e-mail, resumo por período e por forma de pagamento. |
 | **Convênios** | Cadastro de convênios/planos de saúde vinculados ao paciente (carteirinha, registro ANS). |
 | **Estoque** | Itens de medicamentos/materiais/insumos com quantidade mínima, entradas/saídas/ajustes com histórico e **alerta visual de estoque baixo**. |
 | **Pacientes** | Cadastro completo, ficha com alergias, medicamentos em uso e linha do tempo de atendimentos. |
@@ -55,8 +59,9 @@ documento completo está publicado à parte. Resumo:
 | **Unidades (multiclínica)** | Cadastro de unidades/filiais; cada usuário pertence a uma unidade e só vê fila, agenda, relatórios e painel da própria unidade — o ADMIN pode ver tudo ou filtrar por unidade. |
 | **Portal do paciente** | Página própria (`/portal`) onde o paciente vê seus agendamentos e baixa seus documentos, sem precisar de senha. |
 | **App instalável (PWA)** | O app da equipe e o portal do paciente podem ser **instalados no celular** (ícone na tela inicial, tela cheia, funciona com internet instável) direto pelo navegador, sem loja de app. |
+| **Auditoria (LGPD)** | Log de quem acessou/alterou o quê — login, visualização de paciente/atendimento, edição do SOAP, finalização/reabertura de atendimento, emissão de documento e de nota fiscal. Consulta filtrável por período/usuário/paciente/ação, restrita ao ADMIN. |
 
-### Ondas 4 a 6 — próximo incremento validado
+### Ondas 4 a 7 — próximo incremento validado
 
 Fatia mínima de cada ideia, para validar a hipótese sem construir a integração completa (o "M" de MVP):
 
@@ -68,6 +73,9 @@ Fatia mínima de cada ideia, para validar a hipótese sem construir a integraç�
 | **Guia TISS** | PDF simplificado com os campos de uma guia de consulta (beneficiário, prestador, procedimento, CID) | Não é o XML eletrônico que a ANS exige para envio às operadoras — é o documento, não a integração de faturamento |
 | **Multiclínica** | Cadastro de unidades/filiais; fila, agenda, relatórios e painel filtrados por unidade (ADMIN vê tudo ou filtra); documentos impressos usam o timbre da unidade do atendimento | Estoque e faturamento do painel ainda são globais — esses módulos não têm `unidade_id` |
 | **App mobile (PWA)** | Manifest + service worker: "Adicionar à tela inicial" no Android/iOS, ícone e splash próprios, abre em tela cheia (sem barra do navegador), shell da aplicação funciona com rede instável | Não é um app nativo (sem push notification real, sem acesso a APIs do aparelho) — é a fatia mais fina possível da hipótese "app mobile", sem custo de loja nem build nativo |
+| **Trocar de médico** | Ao adicionar à fila (ou agendar), dá pra escolher um profissional específico; só ele (ou o ADMIN) consegue clicar Atender — bloqueia com mensagem clara quem tentar assumir a consulta de outro | Preferência vale só para o dia; não existe agenda de "médico titular" do paciente entre visitas |
+| **Nota fiscal (PF/PJ)** | Substitui o recibo: numeração sequencial, tomador PF (CPF do paciente) ou PJ (CNPJ do convênio), emissão restrita ao financeiro/recepção, botões de envio por WhatsApp/e-mail | Documento interno simplificado — não é a NFS-e eletrônica oficial, que é transmitida à parte pela Secretaria Municipal da Fazenda |
+| **Auditoria (LGPD)** | Log de acesso a dado sensível de saúde: login, visualização e edição de paciente/atendimento, emissão de documento/nota fiscal — consulta por período/usuário/paciente, restrita ao ADMIN | Não gera alerta em tempo real nem exporta relatório de conformidade — é a consulta mínima para provar rastreabilidade |
 
 ### O fluxo de atendimento (prontuário)
 
@@ -81,9 +89,10 @@ Fatia mínima de cada ideia, para validar a hipótese sem construir a integraç�
 
 ### Documentos em PDF (layout de formulário, cabeçalho da clínica)
 
-Receituário · Atestado médico · Requisição de Exames · Guia de Encaminhamento
-(consulta especializada, avaliação cirúrgica, exames especializados ou urgência) ·
-Resumo do Atendimento · **Recibo de Pagamento**.
+Receituário (simples ou controle especial) · Atestado médico · Requisição de Exames ·
+Guia de Encaminhamento (consulta especializada, avaliação cirúrgica, exames
+especializados ou urgência) · Resumo do Atendimento · Guia TISS simplificada ·
+**Nota Fiscal de Serviço** (PF/PJ).
 
 ## Rodar no PC
 
@@ -150,9 +159,11 @@ pytest -v
 Roda contra um banco isolado (`esus_test`, criado uma vez com
 `psql -U postgres -c "CREATE DATABASE esus_test;"`), zerado e re-semeado a
 cada teste com o mesmo `bootstrap.py` de produção — não toca no banco `esus`
-usado pelo atalho. Cobre autenticação/permissões por perfil, validação de
-cadastro de paciente (inclusive o bug do erro 500 corrigido nesta sessão) e
-o filtro multiclínica (fila, agenda e relatórios por unidade).
+usado pelo atalho. 43 testes cobrindo autenticação/permissões por perfil,
+validação de cadastro de paciente, filtro multiclínica (fila, agenda e
+relatórios por unidade), trocar de médico (fila e chegada por agendamento),
+nota fiscal (PF/PJ, numeração sequencial, restrição por perfil) e auditoria
+(log de acesso por ação/paciente/usuário).
 
 ## Usuários de teste (senha `123456`)
 
@@ -187,12 +198,14 @@ esus/
 │   ├── catalogos_seed.py  # listas de CID-10, CIAP-2, medicamentos, exames
 │   ├── impressao.py       # HTML A4 + PDF dos documentos (xhtml2pdf)
 │   ├── planilha.py        # Excel/BI do relatório de produção (openpyxl)
+│   ├── auditoria.py       # Onda 7 — helper de log de acesso (LGPD)
 │   └── routers/
-│       ├── core/          # auth, usuarios, catalogos, relatorios
+│       ├── core/          # auth, usuarios, catalogos, relatorios, auditoria
 │       ├── prontuario/    # MVP 1 — cidadaos, fila, atendimentos, documentos
 │       ├── gestao/        # MVP 2 — agenda, convenios, financeiro, estoque
 │       └── expansao/      # Ondas 4/5 — unidades (multiclínica), portal do paciente
-├── backend/tests/         # pytest — auth/permissões, cadastro de paciente, multiclínica
+├── backend/tests/         # pytest — auth/permissões, cadastro de paciente, multiclínica,
+│                          # trocar de médico, nota fiscal, auditoria
 ├── frontend/
 │   ├── index.html         # sistema da equipe
 │   ├── portal.html        # portal do paciente (mini-app à parte)
@@ -202,7 +215,7 @@ esus/
 │       ├── styles.css
 │       ├── icons/          # ícones do PWA (gerados por scripts/gen_icons.py)
 │       └── js/
-│           ├── core.js        # infra, auth, navegação, painel, cidadãos, usuários
+│           ├── core.js        # infra, auth, navegação, painel, cidadãos, usuários, auditoria
 │           ├── prontuario.js  # MVP 1 — fila, acolhimento, SOAP, documentos, retornos
 │           ├── gestao.js      # MVP 2 — agenda (+WhatsApp/teleconsulta), convênios, financeiro (+TISS), estoque, relatórios
 │           ├── expansao.js    # Ondas 4/5 — unidades (multiclínica)
@@ -230,6 +243,6 @@ só a organização em arquivos mudou.
 - A assinatura do atendimento é um registro de responsabilidade (profissional + data/hora),
   não um certificado digital ICP-Brasil.
 - Dados de pacientes, convênios e financeiro nesta demonstração são fictícios.
-- WhatsApp, teleconsulta, guia TISS e portal do paciente são fatias mínimas (MVP) para
-  validar a ideia — ver limites conhecidos na tabela "Ondas 4 e 5" acima antes de
-  usar em produção com dados reais.
+- WhatsApp, teleconsulta, guia TISS, nota fiscal e portal do paciente são fatias
+  mínimas (MVP) para validar a ideia — ver limites conhecidos na tabela "Ondas 4 a 7"
+  acima antes de usar em produção com dados reais.

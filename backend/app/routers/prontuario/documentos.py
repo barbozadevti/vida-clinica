@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from ... import auditoria
 from ...database import get_db
 from ...models import (
     Atendimento,
@@ -73,6 +74,8 @@ def prescrever(aid: str, dados: PrescricaoIn, usuario: Usuario = Depends(_CLINIC
         ))
     db.commit()
     db.refresh(p)
+    auditoria.registrar(db, usuario, "EMITIU_DOCUMENTO", cidadao_id=at.cidadao_id,
+                        atendimento_id=at.id, detalhe=f"RECEITA: {dados.medicamento}")
     return p
 
 
@@ -113,6 +116,8 @@ def emitir_atestado(aid: str, dados: AtestadoIn, usuario: Usuario = Depends(_CLI
     db.add(a)
     db.commit()
     db.refresh(a)
+    auditoria.registrar(db, usuario, "EMITIU_DOCUMENTO", cidadao_id=at.cidadao_id,
+                        atendimento_id=at.id, detalhe=f"ATESTADO ({a.tipo})")
     return a
 
 
@@ -140,6 +145,8 @@ def solicitar_exames(aid: str, dados: SolicitacaoExameIn, usuario: Usuario = Dep
     db.add(s)
     db.commit()
     db.refresh(s)
+    auditoria.registrar(db, usuario, "EMITIU_DOCUMENTO", cidadao_id=at.cidadao_id,
+                        atendimento_id=at.id, detalhe=f"EXAMES: {s.exames}")
     return s
 
 

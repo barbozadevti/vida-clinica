@@ -14,7 +14,7 @@ from .database import engine
 # prontuario  -> MVP 1, prontuário digital do atendimento
 # gestao      -> MVP 2, fechamento financeiro do dia (agenda/convênios/financeiro/estoque)
 # expansao    -> ondas 4/5, próximos MVPs (multiclínica, portal do paciente)
-from .routers.core import auth, catalogos, relatorios, usuarios
+from .routers.core import auditoria, auth, catalogos, relatorios, usuarios
 from .routers.prontuario import atendimentos, cidadaos, documentos, fila
 from .routers.gestao import agenda, convenios, estoque, financeiro
 from .routers.expansao import portal, unidades
@@ -72,7 +72,7 @@ async def _integrity_error_handler(request: Request, exc: IntegrityError):
 
 
 for r in (auth, usuarios, cidadaos, fila, atendimentos, documentos, relatorios,
-          catalogos, agenda, convenios, financeiro, estoque, unidades, portal):
+          catalogos, agenda, convenios, financeiro, estoque, unidades, portal, auditoria):
     app.include_router(r.router)
 
 

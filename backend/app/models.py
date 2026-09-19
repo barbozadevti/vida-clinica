@@ -426,3 +426,24 @@ class MovimentoEstoque(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     item: Mapped["ItemEstoque"] = relationship()
+
+
+# ─────────────────────────── Auditoria (LGPD) ───────────────────────────
+class LogAcesso(Base):
+    """Rastreabilidade de acesso ao prontuário e a ações sensíveis (LGPD —
+    dado de saúde é dado sensível): quem viu/alterou o quê e quando. Onda 7."""
+
+    __tablename__ = "logs_acesso"
+
+    id: Mapped[uuid.UUID] = _pk()
+    usuario_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id"))
+    # LOGIN | VISUALIZOU_PACIENTE | VISUALIZOU_ATENDIMENTO | EDITOU_SOAP |
+    # FINALIZOU_ATENDIMENTO | REABRIU_ATENDIMENTO | EMITIU_DOCUMENTO | EMITIU_NOTA_FISCAL
+    acao: Mapped[str] = mapped_column(String(30))
+    cidadao_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cidadaos.id"))
+    atendimento_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("atendimentos.id"))
+    detalhe: Mapped[str | None] = mapped_column(Text)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    usuario: Mapped["Usuario | None"] = relationship(lazy="joined")
+    cidadao: Mapped["Cidadao | None"] = relationship(lazy="joined")
