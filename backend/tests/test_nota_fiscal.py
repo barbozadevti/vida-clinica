@@ -1,5 +1,6 @@
 """Nota fiscal de serviço substitui o recibo — por lei, todo procedimento
-ou consulta precisa de nota fiscal, seja pessoa física ou jurídica."""
+ou consulta precisa de nota fiscal, seja pessoa física ou jurídica. Emitir
+(POST) é uma ação do setor financeiro/recepção, separada de imprimir (GET)."""
 from tests.conftest import auth_headers
 
 
@@ -21,9 +22,21 @@ def _cobranca_paga_pf(client, h):
     return cid
 
 
+def test_imprimir_sem_emitir_primeiro_da_409(client):
+    h = auth_headers(client, "recepcao@ubs.local")
+    cid = _cobranca_paga_pf(client, h)
+
+    r = client.get(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
+    assert r.status_code == 409
+
+
 def test_emitir_nota_fiscal_pessoa_fisica(client):
     h = auth_headers(client, "recepcao@ubs.local")
     cid = _cobranca_paga_pf(client, h)
+
+    r = client.post(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["numero_nf"]
 
     r = client.get(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
     assert r.status_code == 200, r.text
@@ -33,14 +46,12 @@ def test_emitir_nota_fiscal_pessoa_fisica(client):
     assert "111.222.333-44" in html  # CPF formatado de João Batista Ferreira
 
 
-def test_reimpressao_reusa_o_mesmo_numero(client):
+def test_reemissao_reusa_o_mesmo_numero(client):
     h = auth_headers(client, "recepcao@ubs.local")
     cid = _cobranca_paga_pf(client, h)
 
-    r1 = client.get(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
-    r2 = client.get(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
-    n1 = r1.json()["html"].split("Nº da nota fiscal")[1][:40]
-    n2 = r2.json()["html"].split("Nº da nota fiscal")[1][:40]
+    n1 = client.post(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h).json()["numero_nf"]
+    n2 = client.post(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h).json()["numero_nf"]
     assert n1 == n2
 
 
@@ -49,9 +60,9 @@ def test_numeracao_sequencial_entre_cobrancas_diferentes(client):
     cid1 = _cobranca_paga_pf(client, h)
     cid2 = _cobranca_paga_pf(client, h)
 
-    c1 = client.get(f"/api/financeiro/cobrancas/{cid1}/nota-fiscal", headers=h).json()
-    c2 = client.get(f"/api/financeiro/cobrancas/{cid2}/nota-fiscal", headers=h).json()
-    assert c1 != c2  # HTMLs distintos (número de NF diferente em cada um)
+    n1 = client.post(f"/api/financeiro/cobrancas/{cid1}/nota-fiscal", headers=h).json()["numero_nf"]
+    n2 = client.post(f"/api/financeiro/cobrancas/{cid2}/nota-fiscal", headers=h).json()["numero_nf"]
+    assert n1 != n2
 
 
 def test_emitir_nota_fiscal_pessoa_juridica_via_convenio(client):
@@ -68,6 +79,7 @@ def test_emitir_nota_fiscal_pessoa_juridica_via_convenio(client):
     assert r.status_code == 201, r.text
     cid = r.json()["id"]
     client.post(f"/api/financeiro/cobrancas/{cid}/pagar", headers=h)
+    client.post(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
 
     r = client.get(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
     assert r.status_code == 200, r.text
@@ -86,5 +98,15 @@ def test_cobranca_cancelada_nao_emite_nota_fiscal(client):
     cid = r.json()["id"]
     client.post(f"/api/financeiro/cobrancas/{cid}/cancelar", headers=h)
 
-    r = client.get(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
+    r = client.post(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h)
     assert r.status_code == 409
+
+
+def test_medico_nao_pode_emitir_nota_fiscal(client):
+    """Emissão de nota fiscal é do setor financeiro/recepção, não do médico."""
+    h_recep = auth_headers(client, "recepcao@ubs.local")
+    cid = _cobranca_paga_pf(client, h_recep)
+
+    h_medico = auth_headers(client, "medico@ubs.local")
+    r = client.post(f"/api/financeiro/cobrancas/{cid}/nota-fiscal", headers=h_medico)
+    assert r.status_code == 403

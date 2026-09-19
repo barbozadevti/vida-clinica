@@ -94,6 +94,7 @@ class CidadaoBase(BaseModel):
     sexo: str = Field(pattern="^[FMI]$")
     nome_mae: str | None = None
     telefone: str | None = None
+    email: str | None = None
     endereco: str | None = None
     convenio_id: uuid.UUID | None = None
     numero_carteirinha: str | None = None
@@ -112,6 +113,7 @@ class CidadaoUpdate(BaseModel):
     sexo: str | None = Field(default=None, pattern="^[FMI]$")
     nome_mae: str | None = None
     telefone: str | None = None
+    email: str | None = None
     endereco: str | None = None
     convenio_id: uuid.UUID | None = None
     numero_carteirinha: str | None = None
@@ -260,6 +262,7 @@ class CidadaoResumo(ORM):
     nome_completo: str
     nome_social: str | None = None
     telefone: str | None = None
+    email: str | None = None
     data_nascimento: date
     sexo: str
     idade: int | None = None

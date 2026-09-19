@@ -314,6 +314,7 @@ async function cidadaoForm(c, reload) {
       { name: "sexo", label: "Sexo", type: "select", options: [{ value: "F", label: "Feminino" }, { value: "M", label: "Masculino" }, { value: "I", label: "Não informado" }] },
       { name: "nome_mae", label: "Nome da mãe", full: true },
       { name: "telefone", label: "Telefone" },
+      { name: "email", label: "E-mail (para envio de documentos/nota fiscal)" },
       { name: "endereco", label: "Endereço", full: true },
       { name: "convenio_id", label: "Convênio", type: "select",
         options: [{ value: "", label: "— Particular —" }, ...convenios.map((v) => ({ value: v.id, label: v.nome }))] },

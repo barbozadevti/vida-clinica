@@ -98,11 +98,17 @@ def resumo(de: date_cls = Query(...), ate: date_cls = Query(...),
     )
 
 
-def _obter_ou_emitir_nf(db: Session, c: Cobranca) -> Cobranca:
-    """Por lei, todo procedimento/consulta da clínica precisa de nota fiscal
-    (não pode mais ser só recibo) — PF ou PJ. O número é sequencial e
-    atribuído uma única vez, na primeira emissão; reimpressões reusam o
-    mesmo número em vez de gerar um novo a cada clique."""
+@router.post("/cobrancas/{cid}/nota-fiscal", response_model=CobrancaOut)
+def emitir_nota_fiscal(cid: str, _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db)):
+    """Emissão da nota fiscal — ação do setor financeiro/recepção, separada
+    de imprimir/baixar/enviar. Por lei, todo procedimento/consulta precisa
+    de nota fiscal (não pode mais ser só recibo), PF ou PJ. O número é
+    sequencial e atribuído uma única vez; reemitir só reusa o mesmo número.
+    Isto gera o documento interno simplificado — a NFS-e oficial é
+    transmitida à parte, no portal da Secretaria Municipal da Fazenda."""
+    c = db.get(Cobranca, cid)
+    if not c:
+        raise HTTPException(404, "Cobrança não encontrada")
     if c.status == "CANCELADO":
         raise HTTPException(409, "Cobrança cancelada não pode emitir nota fiscal")
     if not c.numero_nf:
@@ -115,20 +121,22 @@ def _obter_ou_emitir_nf(db: Session, c: Cobranca) -> Cobranca:
 
 
 @router.get("/cobrancas/{cid}/nota-fiscal")
-def nota_fiscal_html(cid: str, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+def nota_fiscal_html(cid: str, _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db)):
     c = db.get(Cobranca, cid)
     if not c:
         raise HTTPException(404, "Cobrança não encontrada")
-    c = _obter_ou_emitir_nf(db, c)
+    if not c.numero_nf:
+        raise HTTPException(409, "Emita a nota fiscal antes de imprimir")
     return {"html": render_nota_fiscal(c)}
 
 
 @router.get("/cobrancas/{cid}/nota-fiscal.pdf")
-def nota_fiscal_pdf(cid: str, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+def nota_fiscal_pdf(cid: str, _: Usuario = Depends(_GESTAO), db: Session = Depends(get_db)):
     c = db.get(Cobranca, cid)
     if not c:
         raise HTTPException(404, "Cobrança não encontrada")
-    c = _obter_ou_emitir_nf(db, c)
+    if not c.numero_nf:
+        raise HTTPException(409, "Emita a nota fiscal antes de imprimir")
     pdf = render_nota_fiscal_pdf(c)
     nome = f"nota_fiscal_{c.numero_nf.replace('/', '-')}.pdf"
     return Response(pdf, media_type="application/pdf",

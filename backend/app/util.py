@@ -35,6 +35,7 @@ def cidadao_dict(c) -> dict:
         "sexo": c.sexo,
         "nome_mae": c.nome_mae,
         "telefone": c.telefone,
+        "email": c.email,
         "endereco": c.endereco,
         "convenio_id": c.convenio_id,
         "numero_carteirinha": c.numero_carteirinha,

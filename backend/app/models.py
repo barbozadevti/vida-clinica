@@ -85,6 +85,7 @@ class Cidadao(Base):
     sexo: Mapped[str] = mapped_column(String(1))  # F|M|I
     nome_mae: Mapped[str | None] = mapped_column(Text)
     telefone: Mapped[str | None] = mapped_column(Text)
+    email: Mapped[str | None] = mapped_column(Text)
     endereco: Mapped[str | None] = mapped_column(Text)
     convenio_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("convenios.id"))
     numero_carteirinha: Mapped[str | None] = mapped_column(Text)

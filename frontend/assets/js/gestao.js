@@ -26,6 +26,36 @@ async function baixarNotaFiscalPdf(cid) {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   } catch (e) { toast(e.message, true); }
 }
+// emitir é uma ação à parte (setor financeiro/recepção) — dá o número
+// sequencial definitivo; só depois disso a nota pode ser impressa/enviada.
+async function emitirNotaFiscal(cid, reload) {
+  try { await api(`/financeiro/cobrancas/${cid}/nota-fiscal`, { method: "POST" }); toast("Nota fiscal emitida"); reload(); }
+  catch (e) { toast(e.message, true); }
+}
+// envio por WhatsApp/e-mail é só o aviso pro paciente (link click-to-chat /
+// mailto, sem custo e sem API) — o PDF já baixado é anexado manualmente,
+// mesma limitação de qualquer link wa.me/mailto (não é possível anexar
+// arquivo por URL).
+function enviarNotaFiscalWhatsApp(c) {
+  const link = linkWhatsApp(c.cidadao.telefone,
+    `Olá, ${c.cidadao.nome_social || c.cidadao.nome_completo}! Sua nota fiscal Nº ${c.numero_nf} da Vida+ Clínica ` +
+    `(R$ ${c.valor.toFixed(2).replace(".", ",")}) está pronta. Já te enviamos o PDF em seguida.`);
+  if (!link) return toast("Paciente sem telefone cadastrado", true);
+  window.open(link, "_blank");
+  toast("Baixe o PDF e anexe na conversa do WhatsApp");
+}
+function enviarNotaFiscalEmail(c) {
+  if (!c.cidadao.email) return toast("Paciente sem e-mail cadastrado", true);
+  const assunto = encodeURIComponent(`Nota Fiscal Nº ${c.numero_nf} — Vida+ Clínica`);
+  const corpo = encodeURIComponent(
+    `Olá, ${c.cidadao.nome_social || c.cidadao.nome_completo}!\n\n` +
+    `Segue a nota fiscal Nº ${c.numero_nf}, no valor de R$ ${c.valor.toFixed(2).replace(".", ",")}, referente a: ${c.descricao}.\n\n` +
+    `Atenciosamente,\nVida+ Clínica`);
+  const a = document.createElement("a");
+  a.href = `mailto:${c.cidadao.email}?subject=${assunto}&body=${corpo}`;
+  a.click();
+  toast("Baixe o PDF e anexe antes de enviar o e-mail");
+}
 
 // ═════════ RELATÓRIOS ═════════
 views.relatorios = async () => {
@@ -277,10 +307,17 @@ views.financeiro = async () => {
         x.onclick = async () => { if (!confirm("Cancelar cobrança?")) return; await api(`/financeiro/cobrancas/${c.id}/cancelar`, { method: "POST" }); carregarLista(); carregarResumo(); };
         acts.append(p, x);
       }
-      if (c.status === "PAGO") {
-        const r1 = el(`<button class="btn small sec">🖨️ ${c.numero_nf ? "Nota Fiscal" : "Emitir Nota Fiscal"}</button>`); r1.onclick = () => imprimirNotaFiscal(c.id);
+      if (c.status === "PAGO" && !c.numero_nf) {
+        const em = el('<button class="btn small">Emitir Nota Fiscal</button>');
+        em.onclick = () => emitirNotaFiscal(c.id, carregarLista);
+        acts.appendChild(em);
+      }
+      if (c.status === "PAGO" && c.numero_nf) {
+        const r1 = el('<button class="btn small sec">🖨️ Nota Fiscal</button>'); r1.onclick = () => imprimirNotaFiscal(c.id);
         const r2 = el('<button class="btn small sec">PDF</button>'); r2.onclick = () => baixarNotaFiscalPdf(c.id);
-        acts.append(r1, r2);
+        const r3 = el('<button class="btn small sec">📲 WhatsApp</button>'); r3.onclick = () => enviarNotaFiscalWhatsApp(c);
+        const r4 = el('<button class="btn small sec">📧 E-mail</button>'); r4.onclick = () => enviarNotaFiscalEmail(c);
+        acts.append(r1, r2, r3, r4);
       }
       if (c.forma_pagamento === "CONVENIO" && c.convenio) {
         const g = el('<button class="btn small sec">Guia TISS</button>'); g.onclick = () => imprimirGuiaTiss(c.id);

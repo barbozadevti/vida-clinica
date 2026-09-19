@@ -577,6 +577,7 @@ _MIGRACOES = [
     "ALTER TABLE convenios ADD COLUMN IF NOT EXISTS cnpj VARCHAR(14)",
     "ALTER TABLE cobrancas ADD COLUMN IF NOT EXISTS numero_nf TEXT",
     "ALTER TABLE cobrancas ADD COLUMN IF NOT EXISTS nf_emitida_em TIMESTAMPTZ",
+    "ALTER TABLE cidadaos ADD COLUMN IF NOT EXISTS email TEXT",
 ]
 
 

@@ -298,9 +298,11 @@ def render_nota_fiscal(c, autoprint: bool = True) -> str:
       <td style="width:35%"><span class="lbl">Nº da nota fiscal</span><span class="val"><b>{_e(c.numero_nf)}</b></span></td>
     </tr></table>
     <h2 class="doc">Nota Fiscal de Serviço (simplificada)</h2>{corpo}
-    <p class="small" style="margin-top:8px">Documento interno simplificado — controla numeração sequencial e dados do
-    tomador (PF/PJ) exigidos por lei, mas não substitui a NFS-e eletrônica transmitida à prefeitura, que fica
-    fora do escopo deste sistema de demonstração.</p>
+    <p class="small" style="margin-top:8px">Documento interno simplificado, gerado pelo setor financeiro/recepção —
+    controla numeração sequencial e os dados do tomador (PF/PJ) exigidos por lei, mas não substitui a NFS-e eletrônica
+    oficial. A emissão fiscal de verdade é feita à parte, no portal da Secretaria Municipal da Fazenda do município
+    (ou por um sistema de nota fiscal eletrônica integrado a ele) e fica fora do escopo deste sistema de
+    demonstração.</p>
     <div class="data">Emitida em {emitida}</div>
     <div class="assinatura"><div class="linha"></div><b>{_e(unidade.nome if unidade else settings.ubs_nome)}</b></div>
     {ap}</body></html>"""
