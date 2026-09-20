@@ -115,37 +115,38 @@ uvicorn app.main:app --port 8010 --reload
   estoque, agenda, unidades e exemplos de cobranças).
 - `scripts\reset_db.ps1` recria tudo do zero.  `scripts\pg.ps1 psql` abre o console SQL.
 
-### "PostgreSQL não respondeu" toda vez que liga o computador
+### "PostgreSQL não respondeu" / "Deseja finalizar o arquivo em lotes (S/N)?"
 
-**Causa:** o PostgreSQL aqui roda como um processo comum (não como serviço do
-Windows). Quando você desliga o computador, o Windows nunca dá chance dele
-encerrar de forma limpa — então **toda inicialização seguinte precisa fazer uma
-recuperação automática**, que combinada com o antivírus segurando o arquivo de
-log por alguns segundos, pode levar de 30 a 90 segundos. O atalho já foi
-ajustado para aguardar esse tempo e tentar de novo sozinho antes de desistir,
-mas o sintoma pode voltar a aparecer (é esperado, não é um novo defeito).
+**Causa raiz:** o PostgreSQL aqui roda como um processo comum (não como serviço
+do Windows). Quando o computador desliga, o Windows o mata sem aviso — então
+**toda inicialização seguinte faz uma recuperação automática** (conferir ~4.000
+arquivos, com o antivírus no meio: 30 a 90 s). Isso é normal e os dados ficam
+protegidos pelo log de transações (WAL).
 
-**Solução definitiva (uma vez só, requer PowerShell "Executar como
-administrador")** — registrar o PostgreSQL como serviço do Windows. Um serviço
-é controlado pelo próprio Windows: ele recebe um pedido de parada limpo antes
-do computador desligar (acabando com a recuperação automática) e já sobe
-sozinho no boot, antes de você abrir o atalho:
+O que *piorava* tudo (corrigido em `ABRIR e-SUS.bat` + `scripts\pg.ps1`): o banco
+nascia **dentro da janela do atalho**, então um Ctrl+C (o "Deseja finalizar o
+arquivo em lotes?") ou fechar a janela também derrubava o banco no meio da
+recuperação, e cada novo clique reiniciava a recuperação do zero. Agora:
 
-```powershell
-# feche o atalho da clínica antes (nenhum Postgres "solto" pode estar rodando)
-& "C:\Users\rafap\pgsql\bin\pg_ctl.exe" register -N "PostgresVidaClinica" -D "C:\Users\rafap\pgdata" -S auto -o "-p 5432"
-Start-Service "PostgresVidaClinica"
-```
+- o banco sobe em **janela própria e oculta** — Ctrl+C / fechar o atalho não o atingem;
+- um banco que está só **recuperando** nunca é derrubado (clicar de novo apenas espera);
+- só se limpa processo/trava órfã quando nada saudável está rodando;
+- ao encerrar o sistema, o banco é desligado de forma limpa.
 
-Para desfazer, se precisar: `Stop-Service "PostgresVidaClinica"; & "C:\Users\rafap\pgsql\bin\pg_ctl.exe" unregister -N "PostgresVidaClinica"`.
+**Solução definitiva (uma vez só):** dar dois cliques em
+**`INSTALAR SERVICO DO BANCO.bat`** e clicar **Sim** no pedido de administrador do
+Windows. Ele registra o PostgreSQL como **serviço do Windows**: o Windows o
+desliga direito antes de desligar o PC (acaba a recuperação) e o liga sozinho no
+boot. Ele mesmo dá à conta de serviços acesso às pastas do banco, confere que o
+banco respondeu e, se algo falhar, **desfaz tudo** (o atalho segue funcionando).
+Depois disso o `pg.ps1`/atalho detectam o serviço e só esperam por ele.
 
-Se o serviço não iniciar por erro de permissão na pasta `C:\Users\rafap\pgdata`,
-dê controle total ao usuário "SYSTEM" nessa pasta (Propriedades → Segurança)
-ou registre com `-U` e a sua própria conta do Windows.
+Para desfazer um dia: pare o serviço `PostgresVidaClinica` em "Serviços" e rode
+`& "C:\Users\rafap\pgsql\bin\pg_ctl.exe" unregister -N "PostgresVidaClinica"`.
 
-(Não registrei o serviço automaticamente porque isso exige privilégio de
-administrador, que esta sessão não tem — e é uma mudança de configuração do
-sistema que cabe a você aprovar e rodar.)
+(O instalador é um script para *você* rodar, de propósito: registrar serviço e
+mexer em permissões é mudança de configuração do sistema, que exige
+administrador e cabe a você aprovar.)
 
 ## Testes automatizados
 
@@ -223,6 +224,7 @@ esus/
 │           └── boot.js        # inicializa a sessão (carregado por último)
 ├── scripts/               # pg.ps1, reset_db.ps1, gen_icons.py
 ├── Dockerfile + render.yaml   # deploy na nuvem (Render), opcional
+├── INSTALAR SERVICO DO BANCO.bat   # opcional, 1 vez: banco vira serviço do Windows (pede admin)
 └── ABRIR e-SUS.bat
 ```
 

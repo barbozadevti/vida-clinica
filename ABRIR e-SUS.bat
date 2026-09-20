@@ -23,64 +23,33 @@ exit /b
 
 :need_start
 echo [1/3] Verificando o banco de dados PostgreSQL...
-rem IMPORTANTE: so chamamos "pg_ctl start" se o Postgres NAO estiver pronto.
-rem Chamar start com o servidor ja rodando trava (pg_ctl fica esperando
-rem para sempre um postmaster novo que nunca sobe, pois a porta ja esta em uso).
-"C:\Users\rafap\pgsql\bin\pg_isready.exe" -h 127.0.0.1 -p 5432 -t 2 >nul 2>&1
-if errorlevel 1 goto start_pg
-echo    Ja estava rodando.
-goto pg_done
-
-:start_pg
-rem limpeza defensiva: se uma tentativa anterior travou no meio do caminho
-rem (ex.: o Windows foi desligado com o banco ainda aberto -- isso NUNCA da
-rem chance do Postgres encerrar direito, entao TODA inicializacao apos
-rem desligar o PC faz uma recuperacao automatica, que pode levar dezenas de
-rem segundos), pode sobrar processo "preso" e uma trava antiga
-rem (postmaster.pid) que impedem o proximo start de funcionar. So fazemos
-rem essa limpeza aqui porque o pg_isready ACIMA ja confirmou que nada esta
-rem respondendo na porta 5432 -- ou seja, nao ha servidor saudavel para
-rem atrapalhar.
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq 'postgres.exe' -and $_.CommandLine -like '*pgdata*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
-if exist "C:\Users\rafap\pgdata\postmaster.pid" del /f /q "C:\Users\rafap\pgdata\postmaster.pid" >nul 2>&1
-echo    Isso pode levar ate alguns minutos apos desligar o computador (o
-echo    banco precisa recuperar de um desligamento que nao foi limpo)...
-rem IMPORTANTE: "pg_ctl start" e chamado UMA UNICA VEZ aqui (com -W, sem
-rem esperar). Quem espera de verdade e o loop de pg_isready logo abaixo, que
-rem so FICA CONFERINDO se o processo ja lancado terminou de subir -- ele
-rem NUNCA chama "pg_ctl start" de novo. Chamar start uma segunda vez enquanto
-rem o primeiro ainda esta recuperando lanca um SEGUNDO postgres.exe brigando
-rem pela mesma pasta de dados, o que so atrapalha e ja causou problema aqui.
-"C:\Users\rafap\pgsql\bin\pg_ctl.exe" -D "C:\Users\rafap\pgdata" -l "C:\Users\rafap\pgdata\server.log" -o "-p 5432" -W start >nul 2>&1
-set PG_TENTATIVA=0
-
-:start_pg_espera
-"C:\Users\rafap\pgsql\bin\pg_isready.exe" -h 127.0.0.1 -p 5432 -t 5 >nul 2>&1
-if not errorlevel 1 goto pg_ok
-<nul set /p "=."
-set /a PG_TENTATIVA+=1
-if %PG_TENTATIVA% GEQ 60 goto pg_failed
-timeout /t 5 /nobreak >nul 2>&1
-goto start_pg_espera
-
-:pg_ok
 echo.
-echo    OK.
+echo    Depois que o computador e desligado, o banco precisa se recuperar
+echo    sozinho ao ligar (ate ~1 minuto). E NORMAL. Aguarde: NAO aperte
+echo    Ctrl+C e NAO feche esta janela. Se clicar no atalho de novo, ele
+echo    apenas espera o banco que ja esta subindo.
+echo.
+rem Toda a logica do banco esta em scripts\pg.ps1. Pontos importantes dela:
+rem  - o banco sobe em janela PROPRIA e OCULTA (Ctrl+C / fechar esta janela nao o atinge;
+rem    antes ele dividia esta janela e desligava junto -> ciclo de "recuperacao" sem fim);
+rem  - um banco que esta so RECUPERANDO nunca e derrubado, apenas aguardado;
+rem  - so limpa processo/trava orfaos quando nada saudavel esta rodando.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\pg.ps1" start
+if errorlevel 1 goto pg_failed
+echo.
 goto pg_done
 
 :pg_failed
 echo.
-echo    ERRO: o PostgreSQL nao respondeu. Veja C:\Users\rafap\pgdata\server.log
+echo    ERRO: o PostgreSQL nao respondeu ^(detalhes acima^).
 echo.
-echo    DICA: isso acontece de novo a cada vez que o computador e desligado
-echo    porque o banco nunca e encerrado de forma limpa. Para resolver de
-echo    vez, veja "Instalar o PostgreSQL como servico do Windows" no README.
+echo    Tente de novo pelo atalho. Para acabar de vez com essa espera, de dois
+echo    cliques em "INSTALAR SERVICO DO BANCO.bat" ^(pede permissao de administrador
+echo    uma unica vez^) - veja o README, secao "PostgreSQL nao respondeu".
 pause
 exit /b
 
 :pg_done
-echo.
-
 if exist "backend\.venv\Scripts\python.exe" goto python_ok
 echo ERRO: nao encontrei backend\.venv\Scripts\python.exe
 echo O ambiente virtual do Python nao existe ou foi movido.
@@ -102,5 +71,5 @@ echo.
 
 echo.
 echo Sistema encerrado.
-"C:\Users\rafap\pgsql\bin\pg_ctl.exe" -D "C:\Users\rafap\pgdata" stop -m fast >nul 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\pg.ps1" encerrar
 pause
