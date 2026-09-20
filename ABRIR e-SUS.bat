@@ -58,7 +58,9 @@ exit /b
 
 :python_ok
 echo [2/3] O navegador abrira em instantes...
-start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 6; Start-Process 'http://127.0.0.1:8010'"
+rem abre o navegador NO INSTANTE em que o sistema responde (antes era uma espera fixa de 6 s:
+rem atrasava quando o sistema ja estava pronto e abria cedo demais quando o PC estava "frio")
+start "" powershell -NoProfile -WindowStyle Hidden -Command "for ($i=0; $i -lt 300; $i++) { if (Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue) { break }; Start-Sleep -Milliseconds 200 }; Start-Process 'http://127.0.0.1:8010'"
 echo.
 echo [3/3] Iniciando o sistema  (http://127.0.0.1:8010)
 echo    Login:  medico@ubs.local   Senha: 123456
