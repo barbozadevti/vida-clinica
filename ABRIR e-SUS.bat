@@ -23,12 +23,6 @@ exit /b
 
 :need_start
 echo [1/3] Verificando o banco de dados PostgreSQL...
-echo.
-echo    Depois que o computador e desligado, o banco precisa se recuperar
-echo    sozinho ao ligar (ate ~1 minuto). E NORMAL. Aguarde: NAO aperte
-echo    Ctrl+C e NAO feche esta janela. Se clicar no atalho de novo, ele
-echo    apenas espera o banco que ja esta subindo.
-echo.
 rem Toda a logica do banco esta em scripts\pg.ps1. Pontos importantes dela:
 rem  - o banco sobe em janela PROPRIA e OCULTA (Ctrl+C / fechar esta janela nao o atinge;
 rem    antes ele dividia esta janela e desligava junto -> ciclo de "recuperacao" sem fim);

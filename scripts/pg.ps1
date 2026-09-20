@@ -104,9 +104,9 @@ function Iniciar-Banco {
 
   if (Get-Postmaster) {
     # ja existe um banco subindo (ex.: voce clicou no atalho de novo): NAO matar, so esperar.
-    Write-Host "O banco ja esta subindo (recuperando do ultimo desligamento). Aguarde." -NoNewline
+    Write-Host "O banco ja esta subindo (recuperando do ultimo desligamento). Aguarde e NAO aperte Ctrl+C nem feche esta janela." -NoNewline
   } else {
-    Write-Host "Iniciando o banco (apos desligar o PC ele se recupera sozinho, leva ate ~1 minuto)." -NoNewline
+    Write-Host "Iniciando o banco (apos desligar o PC ele se recupera sozinho, leva ate ~1 minuto). Aguarde e NAO aperte Ctrl+C nem feche esta janela." -NoNewline
     Limpar-Restos
     Iniciar-Destacado
   }
