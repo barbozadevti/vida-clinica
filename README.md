@@ -100,6 +100,10 @@ Duplo-clique em **`ABRIR e-SUS.bat`** (ou no atalho da área de trabalho). Ele s
 o PostgreSQL + o sistema e abre o navegador em <http://127.0.0.1:8010>.
 Para parar: feche a janela preta.
 
+Para abrir já na tela de login de outro usuário (em vez de reabrir na sessão do último
+que entrou), passe o e-mail: `ABRIR e-SUS.bat katia@ubs.local`. Dá para ter um atalho por
+usuário — basta colocar o e-mail no campo "Destino" do atalho, depois do nome do `.bat`.
+
 Manualmente:
 
 ```powershell
