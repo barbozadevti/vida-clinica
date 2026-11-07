@@ -3,6 +3,13 @@ chcp 65001 >nul
 title Vida+ Clinica  (feche esta janela para PARAR)
 cd /d "%~dp0"
 
+rem Uso: "ABRIR e-SUS.bat" [e-mail]   -> com e-mail (ex.: katia@ubs.local) o navegador abre ja na
+rem tela de login com esse usuario preenchido; sem argumento, abre a tela normal.
+set "URL=http://127.0.0.1:8010"
+set "QUEM=medico@ubs.local"
+if not "%~1"=="" set "URL=http://127.0.0.1:8010/?login=%~1"
+if not "%~1"=="" set "QUEM=%~1"
+
 echo ============================================================
 echo   Vida+ Clinica  -  Sistema de Gestao Clinica
 echo ============================================================
@@ -13,7 +20,7 @@ netstat -ano | findstr "0.0.0.0:8010 127.0.0.1:8010" | findstr "LISTENING" >nul 
 if errorlevel 1 goto need_start
 
 echo O sistema ja esta rodando. Abrindo o navegador...
-start "" http://127.0.0.1:8010
+start "" "%URL%"
 echo.
 echo Se quiser PARAR o sistema, feche a janela onde ele foi aberto
 echo originalmente ^(ou use o Gerenciador de Tarefas para encerrar
@@ -54,10 +61,10 @@ exit /b
 echo [2/3] O navegador abrira em instantes...
 rem abre o navegador NO INSTANTE em que o sistema responde (antes era uma espera fixa de 6 s:
 rem atrasava quando o sistema ja estava pronto e abria cedo demais quando o PC estava "frio")
-start "" powershell -NoProfile -WindowStyle Hidden -Command "for ($i=0; $i -lt 300; $i++) { if (Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue) { break }; Start-Sleep -Milliseconds 200 }; Start-Process 'http://127.0.0.1:8010'"
+start "" powershell -NoProfile -WindowStyle Hidden -Command "for ($i=0; $i -lt 300; $i++) { if (Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue) { break }; Start-Sleep -Milliseconds 200 }; Start-Process '%URL%'"
 echo.
 echo [3/3] Iniciando o sistema  (http://127.0.0.1:8010)
-echo    Login:  medico@ubs.local   Senha: 123456
+echo    Login:  %QUEM%   Senha: 123456
 echo.
 echo    ^>^>^> Para PARAR: feche esta janela ^<^<^<
 echo ============================================================
